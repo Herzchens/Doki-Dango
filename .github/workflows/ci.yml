@@ -116,8 +116,8 @@ jobs:
           Write-Host 'Tracked-file and secret hygiene checks passed.'
           exit 0
 
-  a1-build:
-    name: A1 .NET build
+  windows-dotnet-reference:
+    name: Windows .NET reference build
     runs-on: windows-latest
     timeout-minutes: 20
 
@@ -130,13 +130,13 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Build A1 unpackaged harness
+      - name: Build Windows notification reference
         shell: powershell
         run: |
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\a1\Build-A1Unpackaged.ps1
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test\windows-notification-reference\Build-Unpackaged.ps1
 
-  b-android-build:
-    name: B Android build
+  android-fcm-harness:
+    name: Android FCM harness build
     runs-on: windows-latest
     timeout-minutes: 30
 
@@ -186,14 +186,14 @@ jobs:
           "ANDROID_SDK_ROOT=$sdkRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "ANDROID_HOME=$sdkRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Build B Kotlin harness
+      - name: Build Android FCM harness
         shell: powershell
         run: |
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\b\Build-BAndroid.ps1
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test\android-fcm\Build.ps1
 
 
-  a21-rust-build:
-    name: A2.1 Rust build
+  windows-rust-harness:
+    name: Windows Rust notification harness build
     runs-on: windows-latest
     timeout-minutes: 20
 
@@ -213,9 +213,9 @@ jobs:
         shell: pwsh
         run: |
           rustup component add rustfmt
-          cargo fmt --manifest-path .\src\a21\rust\Cargo.toml -- --check
+          cargo fmt --manifest-path .\tests\harnesses\windows-notification-listener-rust\rust\Cargo.toml -- --check
 
-      - name: Build A2.1 Rust harness
+      - name: Build Rust notification harness
         shell: pwsh
         run: |
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\a21\Build-A21Rust.ps1
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test\windows-notification-rust\Build.ps1
