@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Doki-Dango A1 synthetic notification</title>
+</head>
+<body>
+  <h1>Doki-Dango A1 synthetic browser notification</h1>
+  <p>This page creates test-only browser notifications for the A1 listener harness.</p>
+
+  <p>
+    <label>
+      Marker
+      <input id="marker" size="40">
+    </label>
+  </p>
+
+  <button id="permission">Request notification permission</button>
+  <button id="notify">Show synthetic notification</button>
+
+  <pre id="status"></pre>
+
+  <script>
+    const marker = document.getElementById("marker");
+    const status = document.getElementById("status");
+
+    function newMarker() {
+      return `DOKI-A1-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+    }
+
+    marker.value = newMarker();
+
+    document.getElementById("permission").addEventListener("click", async () => {
+      const result = await Notification.requestPermission();
+      status.textContent = `permission=${result}`;
+    });
+
+    document.getElementById("notify").addEventListener("click", () => {
+      if (Notification.permission !== "granted") {
+        status.textContent = `permission=${Notification.permission}; grant permission first`;
+        return;
+      }
+
+      const id = marker.value.trim() || newMarker();
+      marker.value = id;
+
+      const notification = new Notification(`${id} title`, {
+        body: `${id} synthetic body`,
+        tag: id,
+        renotify: true
+      });
+
+      status.textContent = `created=${id} at ${new Date().toISOString()}`;
+      notification.addEventListener("close", () => {
+        status.textContent += `\nclosed=${id} at ${new Date().toISOString()}`;
+      });
+    });
+  </script>
+</body>
+</html>
