@@ -190,3 +190,32 @@ jobs:
         shell: powershell
         run: |
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\b\Build-BAndroid.ps1
+
+
+  a21-rust-build:
+    name: A2.1 Rust build
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install stable Rust
+        shell: pwsh
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustc --version
+          cargo --version
+
+      - name: Format check
+        shell: pwsh
+        run: |
+          rustup component add rustfmt
+          cargo fmt --manifest-path .\src\a21\rust\Cargo.toml -- --check
+
+      - name: Build A2.1 Rust harness
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\a21\Build-A21Rust.ps1
