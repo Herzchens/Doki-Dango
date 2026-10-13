@@ -234,3 +234,35 @@ jobs:
         shell: pwsh
         run: |
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test\windows-notification-rust\Build.ps1
+
+
+  windows-host:
+    name: Windows Host workspace
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Install pinned Rust
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.99.0 --profile minimal
+          rustup default 1.99.0
+          rustup component add rustfmt clippy --toolchain 1.99.0
+          rustc --version
+          cargo --version
+
+      - name: Format, lint, and build
+        shell: pwsh
+        run: |
+          cargo fmt --all -- --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo clippy --locked --workspace --all-targets -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo build --locked --workspace --release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
