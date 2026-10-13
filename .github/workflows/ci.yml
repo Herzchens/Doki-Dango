@@ -1,0 +1,192 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Parse and hygiene
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Parse PowerShell with Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $failed = $false
+          $files = @(Get-ChildItem -LiteralPath .\scripts -Recurse -File -Filter '*.ps1')
+          foreach ($file in $files) {
+              $tokens = $null
+              $errors = $null
+              [System.Management.Automation.Language.Parser]::ParseFile(
+                  $file.FullName,
+                  [ref]$tokens,
+                  [ref]$errors
+              ) | Out-Null
+
+              foreach ($parseError in @($errors)) {
+                  Write-Host "::error file=$($file.FullName),line=$($parseError.Extent.StartLineNumber)::$($parseError.Message)"
+                  $failed = $true
+              }
+          }
+
+          if ($failed) {
+              exit 1
+          }
+
+          Write-Host "Parsed $($files.Count) PowerShell scripts with Windows PowerShell 5.1."
+
+      - name: Parse PowerShell with PowerShell 7
+        shell: pwsh
+        run: |
+          $failed = $false
+          $files = @(Get-ChildItem -LiteralPath .\scripts -Recurse -File -Filter '*.ps1')
+          foreach ($file in $files) {
+              $tokens = $null
+              $errors = $null
+              [System.Management.Automation.Language.Parser]::ParseFile(
+                  $file.FullName,
+                  [ref]$tokens,
+                  [ref]$errors
+              ) | Out-Null
+
+              foreach ($parseError in @($errors)) {
+                  Write-Host "::error file=$($file.FullName),line=$($parseError.Extent.StartLineNumber)::$($parseError.Message)"
+                  $failed = $true
+              }
+          }
+
+          if ($failed) {
+              exit 1
+          }
+
+          Write-Host "Parsed $($files.Count) PowerShell scripts with PowerShell 7."
+
+      - name: Check tracked-file and secret hygiene
+        shell: pwsh
+        run: |
+          $tracked = @(git ls-files)
+          $forbidden = @(
+              $tracked | Where-Object {
+                  $_ -match '(^|/)(AGENTS\.md|PLAN\.md|google-services\.json)$' -or
+                  $_ -match '\.(pfx|jks|keystore)$'
+              }
+          )
+
+          if ($forbidden.Count -gt 0) {
+              Write-Host '::error::Forbidden internal/secret-bearing files are tracked:'
+              $forbidden | ForEach-Object {
+                  Write-Host ("::error file={0}::{0}" -f $_)
+              }
+              exit 1
+          }
+
+          $privateKeyPattern = '-----BEGIN ' + '(RSA |EC |OPENSSH )?' + 'PRIVATE KEY-----'
+          $apiKeyPattern = 'AI' + 'za[0-9A-Za-z_-]{20,}'
+          $oauthPattern = 'ya' + '29\.[0-9A-Za-z._-]+'
+          $secretPattern = "$privateKeyPattern|$apiKeyPattern|$oauthPattern"
+
+          $matches = @(& git grep -I -n -E -- $secretPattern 2>$null)
+          $grepExit = $LASTEXITCODE
+
+          if ($grepExit -eq 0) {
+              Write-Host '::error::Potential committed secret material detected.'
+              $matches | ForEach-Object { Write-Host "::error::$_" }
+              exit 1
+          }
+
+          if ($grepExit -ne 1) {
+              throw "git grep failed with exit code $grepExit"
+          }
+
+          Write-Host 'Tracked-file and secret hygiene checks passed.'
+          exit 0
+
+  a1-build:
+    name: A1 .NET build
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build A1 unpackaged harness
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\a1\Build-A1Unpackaged.ps1
+
+  b-android-build:
+    name: B Android build
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Install required Android SDK packages
+        shell: pwsh
+        run: |
+          $sdkRoot = if ($env:ANDROID_SDK_ROOT) {
+              $env:ANDROID_SDK_ROOT
+          } elseif ($env:ANDROID_HOME) {
+              $env:ANDROID_HOME
+          } else {
+              throw 'ANDROID_SDK_ROOT/ANDROID_HOME is not configured on the runner.'
+          }
+
+          $sdkManager = Get-ChildItem -LiteralPath (Join-Path $sdkRoot 'cmdline-tools') `
+              -Recurse `
+              -File `
+              -Filter 'sdkmanager.bat' |
+              Sort-Object FullName -Descending |
+              Select-Object -First 1
+
+          if (-not $sdkManager) {
+              throw "sdkmanager.bat not found under $sdkRoot"
+          }
+
+          & $sdkManager.FullName `
+              "--sdk_root=$sdkRoot" `
+              'platform-tools' `
+              'platforms;android-36.1' `
+              'build-tools;36.1.0'
+
+          if ($LASTEXITCODE -ne 0) {
+              throw "sdkmanager failed with exit code $LASTEXITCODE"
+          }
+
+          "ANDROID_SDK_ROOT=$sdkRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "ANDROID_HOME=$sdkRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build B Kotlin harness
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\b\Build-BAndroid.ps1
