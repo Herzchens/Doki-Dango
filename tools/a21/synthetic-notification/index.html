@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Doki-Dango A2.1 parity synthetic notification</title>
+</head>
+<body>
+  <h1>Doki-Dango A2.1 parity synthetic notification</h1>
+  <p>Test-only source for new, replace, and close notification semantics.</p>
+
+  <p>
+    <label>
+      Current content marker
+      <input id="marker" size="44" readonly>
+    </label>
+  </p>
+
+  <button id="permission">Request notification permission</button>
+  <button id="new">Show new notification</button>
+  <button id="replace">Replace current tag</button>
+  <button id="close">Close current notification</button>
+
+  <pre id="status"></pre>
+
+  <script>
+    const marker = document.getElementById("marker");
+    const status = document.getElementById("status");
+
+    let currentTag = null;
+    let currentNotification = null;
+
+    function newMarker() {
+      return "DOKI-A1-" + Date.now() + "-" + Math.random().toString(16).slice(2, 8);
+    }
+
+    function showNotification(id, tag, verb) {
+      marker.value = id;
+      currentNotification = new Notification(id + " title", {
+        body: id + " synthetic body",
+        tag: tag,
+        renotify: true
+      });
+      status.textContent = verb + "=" + id + "; tag=" + tag + "; at=" + new Date().toISOString();
+      currentNotification.addEventListener("close", () => {
+        status.textContent += "\nclosed=" + id + " at=" + new Date().toISOString();
+      });
+    }
+
+    document.getElementById("permission").addEventListener("click", async () => {
+      const result = await Notification.requestPermission();
+      status.textContent = "permission=" + result;
+    });
+
+    document.getElementById("new").addEventListener("click", () => {
+      if (Notification.permission !== "granted") {
+        status.textContent = "permission=" + Notification.permission + "; grant permission first";
+        return;
+      }
+      const id = newMarker();
+      currentTag = id;
+      showNotification(id, currentTag, "created");
+    });
+
+    document.getElementById("replace").addEventListener("click", () => {
+      if (Notification.permission !== "granted") {
+        status.textContent = "permission=" + Notification.permission + "; grant permission first";
+        return;
+      }
+      if (!currentTag) {
+        status.textContent = "no current tag; create a notification first";
+        return;
+      }
+      const id = newMarker();
+      showNotification(id, currentTag, "replaced");
+    });
+
+    document.getElementById("close").addEventListener("click", () => {
+      if (!currentNotification) {
+        status.textContent = "no current notification object to close";
+        return;
+      }
+      currentNotification.close();
+    });
+  </script>
+</body>
+</html>
