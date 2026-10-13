@@ -41,7 +41,7 @@
         return;
       }
 
-      const id = marker.value.trim() || newMarker();
+      const id = newMarker();
       marker.value = id;
 
       const notification = new Notification(`${id} title`, {
