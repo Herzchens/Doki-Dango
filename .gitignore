@@ -32,3 +32,11 @@ rustc-ice-*.txt
 *.msix
 *.cer
 *.pfx
+
+# Android build/local state
+**/.gradle/
+**/build/
+**/local.properties
+**/google-services.json
+*.jks
+*.keystore
