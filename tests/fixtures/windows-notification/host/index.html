@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Doki-Dango Host notification fixture</title>
+</head>
+<body>
+  <h1>Doki-Dango Host notification fixture</h1>
+  <p>Creates synthetic notifications for packaged Host listener validation.</p>
+  <button id="permission">Request notification permission</button>
+  <button id="new">Show synthetic notification</button>
+  <pre id="status"></pre>
+
+  <script>
+    const status = document.getElementById("status");
+
+    function newMarker() {
+      return "DOKI-WIN-" + Date.now() + "-" + Math.random().toString(16).slice(2, 8);
+    }
+
+    document.getElementById("permission").addEventListener("click", async () => {
+      status.textContent = "permission=" + await Notification.requestPermission();
+    });
+
+    document.getElementById("new").addEventListener("click", () => {
+      if (Notification.permission !== "granted") {
+        status.textContent = "permission=" + Notification.permission + "; grant permission first";
+        return;
+      }
+
+      const id = newMarker();
+      new Notification(id + " title", {
+        body: id + " synthetic body",
+        tag: id
+      });
+      status.textContent = "created=" + id + "; at=" + new Date().toISOString();
+    });
+  </script>
+</body>
+</html>
