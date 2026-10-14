@@ -21,5 +21,9 @@ windows = { version = "=0.62.2", features = [
     "Foundation_Collections",
     "UI_Notifications",
     "UI_Notifications_Management",
+    "Win32_Foundation",
+    "Win32_Security",
     "Win32_System_Com",
+    "Win32_System_Threading",
 ] }
+

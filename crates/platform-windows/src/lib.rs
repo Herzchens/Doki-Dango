@@ -1,4 +1,7 @@
+mod instance;
 pub mod notifications;
+
+pub use instance::{InstanceAcquisition, SingleInstanceGuard, acquire_host_instance};
 
 use windows::{
     ApplicationModel::Package,
