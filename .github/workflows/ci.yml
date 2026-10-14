@@ -269,6 +269,11 @@ jobs:
           cargo build --locked --workspace --release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Credential protection runtime gate
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test\windows-host\Test-CredentialProtection.ps1
+
 
   windows-package:
     name: Windows package build

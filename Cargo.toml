@@ -6,6 +6,7 @@ members = [
 ]
 exclude = [
     "tests/harnesses/windows-notification-listener-rust/rust",
+    "tests/harnesses/windows-credential-protection-rust",
 ]
 resolver = "3"
 
@@ -24,6 +25,7 @@ windows = { version = "=0.62.2", features = [
     "UI_Notifications_Management",
     "Win32_Foundation",
     "Win32_Security",
+    "Win32_Security_Cryptography",
     "Win32_System_Com",
     "Win32_System_Threading",
 ] }

@@ -1,7 +1,11 @@
+mod data_protection;
 mod instance;
 pub mod notifications;
 mod startup;
 
+pub use data_protection::{
+    DataProtectionError, protect_for_current_user, unprotect_for_current_user,
+};
 pub use instance::{InstanceAcquisition, SingleInstanceGuard, acquire_host_instance};
 pub use startup::{HOST_STARTUP_TASK_ID, HostStartupState, host_startup_task_state};
 
