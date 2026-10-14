@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "apps/host",
+    "apps/ui",
     "crates/platform-windows",
 ]
 exclude = [
@@ -26,4 +27,3 @@ windows = { version = "=0.62.2", features = [
     "Win32_System_Com",
     "Win32_System_Threading",
 ] }
-

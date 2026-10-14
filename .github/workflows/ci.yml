@@ -297,13 +297,21 @@ jobs:
           [xml]$manifest = Get-Content -LiteralPath .\packaging\windows\AppxManifest.xml -Raw
           $ns = New-Object System.Xml.XmlNamespaceManager($manifest.NameTable)
           $ns.AddNamespace('f', 'http://schemas.microsoft.com/appx/manifest/foundation/windows10')
+          $ns.AddNamespace('uap', 'http://schemas.microsoft.com/appx/manifest/uap/windows10')
           $ns.AddNamespace('desktop', 'http://schemas.microsoft.com/appx/manifest/desktop/windows10')
 
           $identity = $manifest.SelectSingleNode('/f:Package/f:Identity', $ns)
-          $application = $manifest.SelectSingleNode('/f:Package/f:Applications/f:Application', $ns)
+          $applications = @($manifest.SelectNodes('/f:Package/f:Applications/f:Application', $ns))
+          $hostApplication = $manifest.SelectSingleNode('/f:Package/f:Applications/f:Application[@Id="Host"]', $ns)
+          $uiApplication = $manifest.SelectSingleNode('/f:Package/f:Applications/f:Application[@Id="UI"]', $ns)
+          $uiVisualElements = if ($uiApplication) {
+              $uiApplication.SelectSingleNode('uap:VisualElements', $ns)
+          } else {
+              $null
+          }
           $properties = $manifest.SelectSingleNode('/f:Package/f:Properties', $ns)
           $startupExtension = $manifest.SelectSingleNode(
-              '/f:Package/f:Applications/f:Application/f:Extensions/desktop:Extension[@Category="windows.startupTask"]',
+              '/f:Package/f:Applications/f:Application[@Id="Host"]/f:Extensions/desktop:Extension[@Category="windows.startupTask"]',
               $ns
           )
           $startupTask = if ($startupExtension) {
@@ -314,8 +322,15 @@ jobs:
 
           if ($identity.Name -ne 'ItzHerzchen.DokiDango') { throw "Unexpected package name: $($identity.Name)" }
           if ($identity.Publisher -ne 'CN=ItzHerzchen') { throw "Unexpected publisher: $($identity.Publisher)" }
-          if ($application.Id -ne 'Host') { throw "Unexpected application ID: $($application.Id)" }
-          if ($application.Executable -ne 'dokidango.exe') { throw "Unexpected executable: $($application.Executable)" }
+          if ($applications.Count -ne 2) { throw "Unexpected application count: $($applications.Count)" }
+          if (-not $hostApplication) { throw 'Missing Host application entry.' }
+          if ($hostApplication.Executable -ne 'dokidango.exe') { throw "Unexpected Host executable: $($hostApplication.Executable)" }
+          if ($hostApplication.EntryPoint -ne 'Windows.FullTrustApplication') { throw "Unexpected Host entry point: $($hostApplication.EntryPoint)" }
+          if (-not $uiApplication) { throw 'Missing UI application entry.' }
+          if ($uiApplication.Executable -ne 'dokidango-ui.exe') { throw "Unexpected UI executable: $($uiApplication.Executable)" }
+          if ($uiApplication.EntryPoint -ne 'Windows.FullTrustApplication') { throw "Unexpected UI entry point: $($uiApplication.EntryPoint)" }
+          if (-not $uiVisualElements) { throw 'Missing UI visual elements.' }
+          if ($uiVisualElements.AppListEntry -ne 'none') { throw "UI app list entry must be hidden: $($uiVisualElements.AppListEntry)" }
           if ($properties.DisplayName -ne 'Doki-Dango') { throw "Unexpected display name: $($properties.DisplayName)" }
           if ($properties.PublisherDisplayName -ne 'ItzHerzchen') { throw "Unexpected publisher display name: $($properties.PublisherDisplayName)" }
           if (-not $startupExtension) { throw 'Missing windows.startupTask extension.' }

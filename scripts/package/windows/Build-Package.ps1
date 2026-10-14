@@ -11,7 +11,8 @@ $ArtifactsRoot = Join-Path $RepoRoot 'artifacts\windows'
 $StageDir = Join-Path $ArtifactsRoot 'msix-stage-x64'
 $PackageDir = Join-Path $ArtifactsRoot 'package'
 $MsixPath = Join-Path $PackageDir 'Doki-Dango-x64.msix'
-$ExePath = Join-Path $RepoRoot 'target\release\dokidango.exe'
+$HostExePath = Join-Path $RepoRoot 'target\release\dokidango.exe'
+$UiExePath = Join-Path $RepoRoot 'target\release\dokidango-ui.exe'
 
 function Get-WindowsSdkBinRoots {
     $roots = @()
@@ -66,20 +67,25 @@ function Find-WindowsSdkTool {
 
 $makeAppx = Find-WindowsSdkTool -Name 'makeappx.exe'
 
-& cargo build --locked --release -p doki-dango-host
+& cargo build --locked --release -p doki-dango-host -p doki-dango-ui
 if ($LASTEXITCODE -ne 0) {
     throw "cargo build failed with exit code $LASTEXITCODE"
 }
 
-if (-not (Test-Path -LiteralPath $ExePath)) {
-    throw "Host executable not found: $ExePath"
+if (-not (Test-Path -LiteralPath $HostExePath)) {
+    throw "Host executable not found: $HostExePath"
+}
+
+if (-not (Test-Path -LiteralPath $UiExePath)) {
+    throw "UI executable not found: $UiExePath"
 }
 
 Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $StageDir
 New-Item -ItemType Directory -Force -Path $StageDir, $PackageDir | Out-Null
 Remove-Item -Force -ErrorAction SilentlyContinue $MsixPath
 
-Copy-Item -LiteralPath $ExePath -Destination (Join-Path $StageDir 'dokidango.exe')
+Copy-Item -LiteralPath $HostExePath -Destination (Join-Path $StageDir 'dokidango.exe')
+Copy-Item -LiteralPath $UiExePath -Destination (Join-Path $StageDir 'dokidango-ui.exe')
 Copy-Item -LiteralPath $Manifest -Destination (Join-Path $StageDir 'AppxManifest.xml')
 Copy-Item -LiteralPath $Assets -Destination (Join-Path $StageDir 'Assets') -Recurse -Force
 

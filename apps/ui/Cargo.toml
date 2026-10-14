@@ -1,0 +1,10 @@
+[package]
+name = "doki-dango-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "dokidango-ui"
+path = "src/main.rs"
