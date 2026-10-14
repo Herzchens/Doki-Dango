@@ -1,7 +1,7 @@
 use crate::log::{HostLog, lock_log, sanitize};
 use doki_dango_platform_windows::{
-    ComApartment, InstanceAcquisition, SingleInstanceGuard, acquire_host_instance,
-    current_package_full_name, initialize_sta,
+    ComApartment, HOST_STARTUP_TASK_ID, InstanceAcquisition, SingleInstanceGuard,
+    acquire_host_instance, current_package_full_name, host_startup_task_state, initialize_sta,
     notifications::{NotificationAccess, NotificationListener, NotificationSubscription},
 };
 use std::{
@@ -49,6 +49,23 @@ impl HostApp {
                 "operation=startup package_full_name=\"{}\" executable=dokidango.exe",
                 sanitize(&package_full_name)
             ))?;
+        }
+
+        let startup_state = host_startup_task_state();
+        {
+            let mut log_guard = lock_log(&log);
+            match startup_state {
+                Ok(state) => log_guard.write(&format!(
+                    "operation=startup_task task_id=\"{}\" state={}",
+                    HOST_STARTUP_TASK_ID,
+                    state.as_str()
+                ))?,
+                Err(error) => log_guard.write(&format!(
+                    "operation=startup_task task_id=\"{}\" state=Unavailable hresult=0x{:08X}",
+                    HOST_STARTUP_TASK_ID,
+                    error.code().0 as u32
+                ))?,
+            }
         }
 
         let listener = NotificationListener::current()?;

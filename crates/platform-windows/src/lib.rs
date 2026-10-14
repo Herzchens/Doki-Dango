@@ -1,7 +1,9 @@
 mod instance;
 pub mod notifications;
+mod startup;
 
 pub use instance::{InstanceAcquisition, SingleInstanceGuard, acquire_host_instance};
+pub use startup::{HOST_STARTUP_TASK_ID, HostStartupState, host_startup_task_state};
 
 use windows::{
     ApplicationModel::Package,
