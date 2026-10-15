@@ -357,6 +357,11 @@ jobs:
         run: |
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\package\windows\Build-Package.ps1
 
+      - name: Validate versioned package build
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test\windows-host\Test-VersionedPackageBuild.ps1
+
       - name: Generate release integrity metadata
         shell: pwsh
         run: |
