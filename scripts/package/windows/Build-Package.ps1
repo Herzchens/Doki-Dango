@@ -1,5 +1,9 @@
 [CmdletBinding()]
-param()
+param(
+    [string]$PackageVersion,
+    [string]$OutputPath,
+    [switch]$SkipBuild
+)
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2.0
@@ -9,10 +13,37 @@ $Manifest = Join-Path $RepoRoot 'packaging\windows\AppxManifest.xml'
 $Assets = Join-Path $RepoRoot 'packaging\windows\Assets'
 $ArtifactsRoot = Join-Path $RepoRoot 'artifacts\windows'
 $StageDir = Join-Path $ArtifactsRoot 'msix-stage-x64'
-$PackageDir = Join-Path $ArtifactsRoot 'package'
-$MsixPath = Join-Path $PackageDir 'Doki-Dango-x64.msix'
+$DefaultPackageDir = Join-Path $ArtifactsRoot 'package'
 $HostExePath = Join-Path $RepoRoot 'target\release\dokidango.exe'
 $UiExePath = Join-Path $RepoRoot 'target\release\dokidango-ui.exe'
+
+function ConvertTo-AbsolutePath {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$BasePath
+    )
+
+    if ([IO.Path]::IsPathRooted($Path)) {
+        return [IO.Path]::GetFullPath($Path)
+    }
+
+    return [IO.Path]::GetFullPath((Join-Path $BasePath $Path))
+}
+
+function Assert-PackageVersion {
+    param([Parameter(Mandatory = $true)][string]$Version)
+
+    if ($Version -notmatch '^\d+\.\d+\.\d+\.\d+$') {
+        throw 'PackageVersion must contain exactly four numeric components.'
+    }
+
+    foreach ($component in @($Version.Split('.'))) {
+        $value = [int]$component
+        if ($value -lt 0 -or $value -gt 65535) {
+            throw "PackageVersion component is outside 0..65535: $component"
+        }
+    }
+}
 
 function Get-WindowsSdkBinRoots {
     $roots = @()
@@ -65,11 +96,27 @@ function Find-WindowsSdkTool {
     throw "$Name not found in Windows SDK."
 }
 
+if (-not [string]::IsNullOrWhiteSpace($PackageVersion)) {
+    Assert-PackageVersion -Version $PackageVersion
+}
+
+$MsixPath = if ([string]::IsNullOrWhiteSpace($OutputPath)) {
+    Join-Path $DefaultPackageDir 'Doki-Dango-x64.msix'
+} else {
+    ConvertTo-AbsolutePath -Path $OutputPath -BasePath $RepoRoot
+}
+$PackageDir = Split-Path -Parent $MsixPath
+if ([string]::IsNullOrWhiteSpace($PackageDir)) {
+    throw 'OutputPath must include a package file name.'
+}
+
 $makeAppx = Find-WindowsSdkTool -Name 'makeappx.exe'
 
-& cargo build --locked --release -p doki-dango-host -p doki-dango-ui
-if ($LASTEXITCODE -ne 0) {
-    throw "cargo build failed with exit code $LASTEXITCODE"
+if (-not $SkipBuild) {
+    & cargo build --locked --release -p doki-dango-host -p doki-dango-ui
+    if ($LASTEXITCODE -ne 0) {
+        throw "cargo build failed with exit code $LASTEXITCODE"
+    }
 }
 
 if (-not (Test-Path -LiteralPath $HostExePath)) {
@@ -89,6 +136,29 @@ Copy-Item -LiteralPath $UiExePath -Destination (Join-Path $StageDir 'dokidango-u
 Copy-Item -LiteralPath $Manifest -Destination (Join-Path $StageDir 'AppxManifest.xml')
 Copy-Item -LiteralPath $Assets -Destination (Join-Path $StageDir 'Assets') -Recurse -Force
 
+if (-not [string]::IsNullOrWhiteSpace($PackageVersion)) {
+    $stageManifestPath = Join-Path $StageDir 'AppxManifest.xml'
+    [xml]$stageManifest = Get-Content -LiteralPath $stageManifestPath -Raw
+    $ns = New-Object System.Xml.XmlNamespaceManager($stageManifest.NameTable)
+    $ns.AddNamespace('f', 'http://schemas.microsoft.com/appx/manifest/foundation/windows10')
+    $identity = $stageManifest.SelectSingleNode('/f:Package/f:Identity', $ns)
+    if (-not $identity) {
+        throw 'Staged package manifest is missing Package/Identity.'
+    }
+
+    $identity.Version = $PackageVersion
+
+    $settings = New-Object System.Xml.XmlWriterSettings
+    $settings.Encoding = New-Object Text.UTF8Encoding($false)
+    $settings.Indent = $true
+    $writer = [Xml.XmlWriter]::Create($stageManifestPath, $settings)
+    try {
+        $stageManifest.Save($writer)
+    } finally {
+        $writer.Dispose()
+    }
+}
+
 & $makeAppx pack /d $StageDir /p $MsixPath /o
 if ($LASTEXITCODE -ne 0) {
     throw "MakeAppx failed with exit code $LASTEXITCODE"
@@ -97,4 +167,7 @@ if ($LASTEXITCODE -ne 0) {
 $hash = Get-FileHash -LiteralPath $MsixPath -Algorithm SHA256
 
 Write-Host "Unsigned MSIX: $MsixPath"
+if (-not [string]::IsNullOrWhiteSpace($PackageVersion)) {
+    Write-Host "Package version: $PackageVersion"
+}
 Write-Host "SHA256: $($hash.Hash)"

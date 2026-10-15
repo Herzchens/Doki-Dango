@@ -1,15 +1,45 @@
 [CmdletBinding()]
-param()
+param(
+    [string]$PackagePath,
+    [string]$CertificatePath
+)
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2.0
 
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 $PackageDir = Join-Path $RepoRoot 'artifacts\windows\package'
-$MsixPath = Join-Path $PackageDir 'Doki-Dango-x64.msix'
-$CerPath = Join-Path $PackageDir 'Doki-Dango-Development.cer'
 $Publisher = 'CN=ItzHerzchen'
 $FriendlyName = 'Doki-Dango Development Signing'
+
+function ConvertTo-AbsolutePath {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$BasePath
+    )
+
+    if ([IO.Path]::IsPathRooted($Path)) {
+        return [IO.Path]::GetFullPath($Path)
+    }
+
+    return [IO.Path]::GetFullPath((Join-Path $BasePath $Path))
+}
+
+$MsixPath = if ([string]::IsNullOrWhiteSpace($PackagePath)) {
+    Join-Path $PackageDir 'Doki-Dango-x64.msix'
+} else {
+    ConvertTo-AbsolutePath -Path $PackagePath -BasePath $RepoRoot
+}
+$CerPath = if ([string]::IsNullOrWhiteSpace($CertificatePath)) {
+    Join-Path $PackageDir 'Doki-Dango-Development.cer'
+} else {
+    ConvertTo-AbsolutePath -Path $CertificatePath -BasePath $RepoRoot
+}
+
+$cerDirectory = Split-Path -Parent $CerPath
+if (-not [string]::IsNullOrWhiteSpace($cerDirectory)) {
+    New-Item -ItemType Directory -Force -Path $cerDirectory | Out-Null
+}
 
 $markerScript = (Resolve-Path (Join-Path $PSScriptRoot '..\..\release\windows\CertificateMarkers.ps1')).Path
 . $markerScript
@@ -82,17 +112,19 @@ $cert = Get-ChildItem Cert:\CurrentUser\My |
     Select-Object -First 1
 
 if (-not $cert) {
-    $cert = New-SelfSignedCertificate `
-        -Type Custom `
-        -KeyUsage DigitalSignature `
-        -CertStoreLocation 'Cert:\CurrentUser\My' `
-        -TextExtension @(
+    $certificateParameters = @{
+        Type = 'Custom'
+        KeyUsage = 'DigitalSignature'
+        CertStoreLocation = 'Cert:\CurrentUser\My'
+        TextExtension = @(
             '2.5.29.37={text}1.3.6.1.5.5.7.3.3',
             '2.5.29.19={text}',
             "2.5.29.17={text}URL=$DevelopmentMarkerUrl"
-        ) `
-        -Subject $Publisher `
-        -FriendlyName $FriendlyName
+        )
+        Subject = $Publisher
+        FriendlyName = $FriendlyName
+    }
+    $cert = New-SelfSignedCertificate @certificateParameters
 }
 
 Export-Certificate -Cert $cert -FilePath $CerPath -Force | Out-Null
