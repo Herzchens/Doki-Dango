@@ -1,4 +1,5 @@
 use crate::log::{HostLog, lock_log, sanitize};
+use doki_dango_host::diagnostics::{AccessState, DiagnosticEvent, Diagnostics};
 use doki_dango_platform_windows::{
     ComApartment, HOST_STARTUP_TASK_ID, InstanceAcquisition, SingleInstanceGuard,
     acquire_host_instance, current_package_full_name, host_startup_task_state, initialize_sta,
@@ -15,6 +16,7 @@ pub struct HostApp {
     _instance: SingleInstanceGuard,
     _subscription: NotificationSubscription,
     _log: Arc<Mutex<HostLog>>,
+    _diagnostics: Option<Diagnostics>,
 }
 
 pub enum LaunchOutcome {
@@ -33,6 +35,12 @@ impl HostApp {
                 return Ok(LaunchOutcome::AlreadyRunning);
             }
         };
+
+        // Diagnostics are best-effort and must never block listener startup.
+        let mut diagnostics = Diagnostics::open_default().ok();
+        if let Some(recorder) = diagnostics.as_mut() {
+            let _ = recorder.record(DiagnosticEvent::HostStarting);
+        }
 
         let log = Arc::new(Mutex::new(HostLog::new()?));
         {
@@ -76,6 +84,12 @@ impl HostApp {
             listener.request_access()?
         };
 
+        if let Some(recorder) = diagnostics.as_mut() {
+            let _ = recorder.record(DiagnosticEvent::ListenerAccess {
+                status: AccessState::from(after),
+            });
+        }
+
         {
             let mut log_guard = lock_log(&log);
             log_guard.write(&format!(
@@ -90,6 +104,11 @@ impl HostApp {
         }
 
         let snapshots = listener.poll()?;
+        if let Some(recorder) = diagnostics.as_mut() {
+            let _ = recorder.record(DiagnosticEvent::ListenerPoll {
+                count: u64::try_from(snapshots.len()).unwrap_or(u64::MAX),
+            });
+        }
         {
             let mut log_guard = lock_log(&log);
             log_guard.write(&format!("operation=poll count={}", snapshots.len()))?;
@@ -106,6 +125,9 @@ impl HostApp {
             }
         })?;
 
+        if let Some(recorder) = diagnostics.as_mut() {
+            let _ = recorder.record(DiagnosticEvent::ListenerReady);
+        }
         {
             let mut log_guard = lock_log(&log);
             log_guard.write("operation=listener_ready status=success")?;
@@ -119,6 +141,7 @@ impl HostApp {
             _instance: instance,
             _subscription: subscription,
             _log: log,
+            _diagnostics: diagnostics,
         }))
     }
 

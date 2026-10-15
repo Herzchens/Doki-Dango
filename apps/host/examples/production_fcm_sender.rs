@@ -1,5 +1,6 @@
 use doki_dango_host::{
     credentials::ProtectedCredentialFile,
+    diagnostics::{DiagnosticEvent, Diagnostics},
     fcm::{FcmDataMessage, FcmSender},
     protocol::ProtocolEnvelope,
 };
@@ -68,7 +69,17 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     message.android_package_name = Some("dev.dokidango.bharness".to_string());
     message.ttl_seconds = 60;
 
-    let receipt = sender.send(&message)?;
+    // Never report FCM acceptance as handset delivery.
+    // A diagnostics I/O failure must not suppress the FCM send.
+    let mut diagnostics = Diagnostics::open_default().ok();
+    if let Some(recorder) = diagnostics.as_mut() {
+        let _ = recorder.record(DiagnosticEvent::FcmSendAttempt);
+    }
+    let result = sender.send(&message);
+    if let Some(recorder) = diagnostics.as_mut() {
+        let _ = recorder.record_fcm_outcome(&result);
+    }
+    let receipt = result?;
 
     println!(
         "SEND_OK test_id={} project_id={} attempts={} response_name_length={}",
