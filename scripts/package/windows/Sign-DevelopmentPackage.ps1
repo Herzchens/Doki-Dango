@@ -11,6 +11,10 @@ $CerPath = Join-Path $PackageDir 'Doki-Dango-Development.cer'
 $Publisher = 'CN=ItzHerzchen'
 $FriendlyName = 'Doki-Dango Development Signing'
 
+$markerScript = (Resolve-Path (Join-Path $PSScriptRoot '..\..\release\windows\CertificateMarkers.ps1')).Path
+. $markerScript
+$DevelopmentMarkerUrl = Get-DokiDangoDevelopmentSignerMarkerUrl
+
 function Get-WindowsSdkBinRoots {
     $roots = @()
 
@@ -70,6 +74,7 @@ $cert = Get-ChildItem Cert:\CurrentUser\My |
     Where-Object {
         $_.Subject -eq $Publisher -and
         $_.FriendlyName -eq $FriendlyName -and
+        (Test-DokiDangoCertificateHasDevelopmentMarker -Certificate $_) -and
         $_.HasPrivateKey -and
         $_.NotAfter -gt (Get-Date).AddDays(7)
     } |
@@ -83,7 +88,8 @@ if (-not $cert) {
         -CertStoreLocation 'Cert:\CurrentUser\My' `
         -TextExtension @(
             '2.5.29.37={text}1.3.6.1.5.5.7.3.3',
-            '2.5.29.19={text}'
+            '2.5.29.19={text}',
+            "2.5.29.17={text}URL=$DevelopmentMarkerUrl"
         ) `
         -Subject $Publisher `
         -FriendlyName $FriendlyName
@@ -102,6 +108,9 @@ if ($signature.Status -ne 'Valid') {
 }
 if ($signature.SignerCertificate.Subject -ne $Publisher) {
     throw "Unexpected signer subject: $($signature.SignerCertificate.Subject)"
+}
+if (-not (Test-DokiDangoCertificateHasDevelopmentMarker -Certificate $signature.SignerCertificate)) {
+    throw 'Development signer marker is missing from the signed package.'
 }
 
 Write-Host "Development-signed MSIX: $MsixPath"

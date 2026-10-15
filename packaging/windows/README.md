@@ -9,3 +9,13 @@ For local runtime validation only:
 3. run `Install-DevelopmentPackage.ps1` from an elevated PowerShell.
 
 The development signer uses the production package publisher subject (`CN=ItzHerzchen`) so the package identity remains stable, but the self-signed certificate is not a production trust strategy and must not be published as a release credential.
+
+## Release integrity
+
+Release integrity metadata can be prepared without selecting the production signing provider:
+
+- `scripts/release/windows/New-ReleaseIntegrity.ps1` records the package SHA-256, stable package identity, source commit, and factual Authenticode signer information.
+- `scripts/release/windows/New-CargoSpdxSbom.ps1` generates an SPDX 2.3 dependency inventory from locked Cargo metadata.
+- `scripts/release/windows/Test-ReleaseCandidate.ps1` is the publication trust gate. It requires an explicitly approved signer thumbprint, rejects the known development signer, and verifies the artifact hash, source commit, package identity, and SBOM.
+
+The release trust gate is intentionally not wired to a production release workflow until the public Windows signing strategy is approved. Development-signed artifacts must never be published as production releases.
