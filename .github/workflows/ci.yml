@@ -269,6 +269,12 @@ jobs:
           cargo build --locked --workspace --release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Build production FCM sender harness
+        shell: pwsh
+        run: |
+          cargo build --locked --release -p doki-dango-host --example production_fcm_sender
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Credential protection runtime gate
         shell: powershell
         run: |
