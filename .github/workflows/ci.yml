@@ -356,3 +356,17 @@ jobs:
         shell: pwsh
         run: |
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\package\windows\Build-Package.ps1
+
+      - name: Generate release integrity metadata
+        shell: pwsh
+        run: |
+          $sourceCommit = (git rev-parse HEAD).Trim()
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\release\windows\New-ReleaseIntegrity.ps1 -SourceCommit $sourceCommit
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\release\windows\New-CargoSpdxSbom.ps1 -SourceCommit $sourceCommit
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Validate release integrity gates
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test\windows-host\Test-ReleaseIntegrity.ps1
