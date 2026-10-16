@@ -12,8 +12,6 @@ rustc-ice-*.txt
 .vscode/
 
 # .NET spike build output
-tests/reference/windows-notification-listener-dotnet/**/bin/
-tests/reference/windows-notification-listener-dotnet/**/obj/
 windows/spikes/notification-listener-dotnet/**/bin/
 windows/spikes/notification-listener-dotnet/**/obj/
 
@@ -24,10 +22,6 @@ windows/spikes/notification-listener-dotnet/**/obj/
 *.pfx
 
 # Android spike build output and local state
-tests/harnesses/android-fcm/android/**/.gradle/
-tests/harnesses/android-fcm/android/**/build/
-tests/harnesses/android-fcm/android/**/local.properties
-tests/harnesses/android-fcm/android/**/google-services.json
 android/**/.gradle/
 android/**/build/
 android/**/local.properties

@@ -18,13 +18,14 @@ This repository represents pre-release engineering and infrastructure foundation
 
 ## Repository Entrypoints
 
-- `apps/host` — Windows Host authoritative process (`doki-dango-host`).
-- `apps/ui` — Windows UI process-boundary bootstrap scaffold (`doki-dango-ui`).
-- `crates/platform-windows` — Windows platform abstractions, WinRT listener, and DPAPI credential protection.
-- `packaging/windows` — Windows MSIX packaging assets and configuration.
-- `scripts/package/windows` — Windows package build and signing scripts.
-- `scripts/release/windows` — Release integrity and SBOM generation tooling.
-- `scripts/test/windows-host` — Platform and integration verification scripts.
+- `windows/host` — Windows Host authoritative process (`doki-dango-host`).
+- `windows/ui` — Windows UI process-boundary bootstrap scaffold (`doki-dango-ui`).
+- `windows/platform` — Windows platform abstractions, WinRT listener, and DPAPI credential protection.
+- `windows/packaging` — Windows MSIX packaging assets and configuration.
+- `windows/scripts/package` — Windows package build and signing scripts.
+- `windows/scripts/release` — Release integrity and SBOM generation tooling.
+- `windows/tests/host` — Platform and host verification scripts.
+- `windows/tests/packaging` — Package upgrade and release integrity verification scripts.
 
 ## Security
 

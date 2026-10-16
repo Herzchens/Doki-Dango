@@ -1,12 +1,12 @@
 [workspace]
 members = [
-    "apps/host",
-    "apps/ui",
-    "crates/platform-windows",
+    "windows/host",
+    "windows/ui",
+    "windows/platform",
 ]
 exclude = [
-    "tests/harnesses/windows-notification-listener-rust/rust",
-    "tests/harnesses/windows-credential-protection-rust",
+    "windows/spikes/notification-listener-rust/rust",
+    "windows/tests/credential-protection",
 ]
 resolver = "3"
 
