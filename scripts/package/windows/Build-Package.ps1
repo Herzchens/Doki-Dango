@@ -8,7 +8,11 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2.0
 
-$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+$gitOutput = (& git -C $PSScriptRoot rev-parse --show-toplevel 2>&1 | Out-String).Trim()
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($gitOutput)) {
+    throw "Failed to resolve repository root from '$PSScriptRoot' using git."
+}
+$RepoRoot = (Resolve-Path -LiteralPath $gitOutput).Path
 $Manifest = Join-Path $RepoRoot 'packaging\windows\AppxManifest.xml'
 $Assets = Join-Path $RepoRoot 'packaging\windows\Assets'
 $ArtifactsRoot = Join-Path $RepoRoot 'artifacts\windows'

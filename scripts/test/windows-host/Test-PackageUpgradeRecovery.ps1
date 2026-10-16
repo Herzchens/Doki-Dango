@@ -17,7 +17,11 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
     throw 'Run this test from an elevated PowerShell window.'
 }
 
-$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+$gitOutput = (& git -C $PSScriptRoot rev-parse --show-toplevel 2>&1 | Out-String).Trim()
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($gitOutput)) {
+    throw "Failed to resolve repository root from '$PSScriptRoot' using git."
+}
+$RepoRoot = (Resolve-Path -LiteralPath $gitOutput).Path
 $BuildScript = Join-Path $RepoRoot 'scripts\package\windows\Build-Package.ps1'
 $SignScript = Join-Path $RepoRoot 'scripts\package\windows\Sign-DevelopmentPackage.ps1'
 $PackageName = 'ItzHerzchen.DokiDango'
