@@ -9,7 +9,7 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($gitOutput)) {
     throw "Failed to resolve repository root from '$PSScriptRoot' using git."
 }
 $RepoRoot = (Resolve-Path -LiteralPath $gitOutput).Path
-$EvidenceRoot = Join-Path $RepoRoot 'artifacts\a1\evidence'
+$EvidenceRoot = Join-Path $RepoRoot 'artifacts\windows\notification-listener-dotnet\evidence'
 New-Item -ItemType Directory -Force -Path $EvidenceRoot | Out-Null
 
 $cv = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'

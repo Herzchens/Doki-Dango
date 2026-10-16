@@ -32,7 +32,7 @@
   <Applications>
     <Application
       Id="App"
-      Executable="doki-dango-a21-rust-harness.exe"
+      Executable="doki-dango-notification-listener-rust.exe"
       EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
         DisplayName="Doki-Dango A2.1 Rust Harness"

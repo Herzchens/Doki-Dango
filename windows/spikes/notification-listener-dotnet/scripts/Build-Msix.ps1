@@ -14,8 +14,8 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($gitOutput)) {
 $RepoRoot = (Resolve-Path -LiteralPath $gitOutput).Path
 $Project = Join-Path $RepoRoot 'windows\spikes\notification-listener-dotnet\app\DokiDango.A1Harness.csproj'
 $ManifestTemplate = Join-Path $RepoRoot 'windows\spikes\notification-listener-dotnet\packaging\AppxManifest.xml.in'
-$AssetsSource = Join-Path $RepoRoot 'windows\spikes\notification-listener-dotnet\packaging\Assets'
-$ArtifactsRoot = Join-Path $RepoRoot 'artifacts\a1'
+$AssetsSource = Join-Path $RepoRoot 'windows\tests\fixtures\notifications\package-assets'
+$ArtifactsRoot = Join-Path $RepoRoot 'artifacts\windows\notification-listener-dotnet'
 $PublishDir = Join-Path $ArtifactsRoot "publish-$Architecture"
 $StageDir = Join-Path $ArtifactsRoot "msix-stage-$Architecture"
 $PackageDir = Join-Path $ArtifactsRoot 'package'

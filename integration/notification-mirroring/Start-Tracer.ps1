@@ -1,6 +1,9 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
+    [string]$CredentialPath = (Join-Path $env:LOCALAPPDATA 'Doki-Dango\Host\credentials\firebase-service-account.dpapi'),
+
+    [string]$FidPath = (Join-Path $env:LOCALAPPDATA 'Doki-Dango\B\secrets\fid.txt'),
+
     [string]$ProjectId,
 
     [string]$A1EvidencePath,
@@ -18,11 +21,9 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($gitOutput)) {
     throw "Failed to resolve repository root from '$PSScriptRoot' using git."
 }
 $RepoRoot = (Resolve-Path -LiteralPath $gitOutput).Path
-$SendScript = Join-Path $RepoRoot 'android\spikes\firebase-messaging\scripts\Send-TestMessage.ps1'
-$EvidenceRoot = Join-Path $RepoRoot 'artifacts\a2\evidence'
+$HostSenderScript = Join-Path $RepoRoot 'windows\tests\host\Test-ProductionFcmSender.ps1'
+$EvidenceRoot = Join-Path $RepoRoot 'artifacts\integration\notification-mirroring\evidence'
 $PackageName = 'dev.dokidango.bharness'
-$FidPath = Join-Path $env:LOCALAPPDATA 'Doki-Dango\B\secrets\fid.txt'
-$AccessTokenPath = Join-Path $env:LOCALAPPDATA 'Doki-Dango\B\secrets\access-token.json'
 
 function Resolve-Adb {
     $command = Get-Command adb -ErrorAction SilentlyContinue
@@ -123,14 +124,14 @@ function Get-AndroidEvidence([string]$Adb) {
     return @($records)
 }
 
-if (-not (Test-Path -LiteralPath $SendScript)) {
-    throw "B sender script not found: $SendScript"
+if (-not (Test-Path -LiteralPath $HostSenderScript)) {
+    throw "Host production sender script not found: $HostSenderScript"
+}
+if (-not (Test-Path -LiteralPath $CredentialPath)) {
+    throw "Protected credential file not found: $CredentialPath"
 }
 if (-not (Test-Path -LiteralPath $FidPath)) {
     throw "B FID secret not found: $FidPath"
-}
-if (-not (Test-Path -LiteralPath $AccessTokenPath)) {
-    throw "B OAuth token not found: $AccessTokenPath"
 }
 
 $adb = Resolve-Adb
@@ -214,29 +215,30 @@ $sourceEpochMs = [Int64]$markerMatch.Groups[1].Value
 $sourceSuffix = $markerMatch.Groups[2].Value.ToLowerInvariant()
 $sourceCreatedUtc = [DateTimeOffset]::FromUnixTimeMilliseconds($sourceEpochMs)
 $listenerObservedUtc = [DateTimeOffset]::Parse([string]$windowsRecord.timestampUtc)
-$testId = "DOKI-B-A20-$sourceEpochMs-$sourceSuffix"
+$testId = "DOKI-B-PROD-A20-$sourceEpochMs-$sourceSuffix"
 
 Write-Host "Windows source marker: $($markerMatch.Value)"
 Write-Host "Listener observed: $($listenerObservedUtc.ToString('o'))"
-Write-Host "Sending A2.0 test ID: $testId"
+Write-Host "Sending A2.0 test ID via production FCM sender: $testId"
 
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $SendScript -ProjectId $ProjectId -TestId $testId
-
+$sendOutput = @(
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $HostSenderScript `
+        -CredentialPath $CredentialPath `
+        -FidPath $FidPath `
+        -TestId $testId 2>&1
+)
 if ($LASTEXITCODE -ne 0) {
-    throw "B sender failed with exit code $LASTEXITCODE"
+    $errText = $sendOutput -join "`n"
+    throw "Production FCM sender failed with exit code ${LASTEXITCODE}: $errText"
 }
 
-$sendEvidencePath = Join-Path $RepoRoot ("artifacts\b\evidence\send-{0}.json" -f ($testId -replace '[^A-Za-z0-9_.-]', '_'))
-if (-not (Test-Path -LiteralPath $sendEvidencePath)) {
-    throw "Expected sender evidence not found: $sendEvidencePath"
+$sendOk = @($sendOutput | Where-Object { [string]$_ -like 'SEND_OK *' })
+if ($sendOk.Count -ne 1) {
+    $outText = $sendOutput -join "`n"
+    throw "Production FCM sender did not report SEND_OK: $outText"
 }
 
-$sendEvidence = Get-Content -LiteralPath $sendEvidencePath -Raw | ConvertFrom-Json
-if (-not $sendEvidence.accepted) {
-    throw "FCM sender did not accept A2.0 test ID $testId"
-}
-
-$fcmAcceptedUtc = [DateTimeOffset]::Parse([string]$sendEvidence.timestampUtc)
+$fcmAcceptedUtc = [DateTimeOffset]::UtcNow
 $androidDeadline = [DateTimeOffset]::UtcNow.AddSeconds($TimeoutSeconds)
 $callback = $null
 $notification = $null
@@ -295,8 +297,9 @@ $result = [ordered]@{
         operation = 'notification_event_snapshot'
     }
     sender = [ordered]@{
-        accepted = [bool]$sendEvidence.accepted
-        httpStatus = [int]$sendEvidence.httpStatus
+        accepted = $true
+        implementation = 'production_fcm_sender'
+        senderOutput = [string]$sendOk[0]
         acceptedUtc = $fcmAcceptedUtc.ToString('o')
     }
     android = [ordered]@{

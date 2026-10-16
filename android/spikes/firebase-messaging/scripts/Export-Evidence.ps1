@@ -9,7 +9,7 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($gitOutput)) {
     throw "Failed to resolve repository root from '$PSScriptRoot' using git."
 }
 $RepoRoot = (Resolve-Path -LiteralPath $gitOutput).Path
-$EvidenceRoot = Join-Path $RepoRoot 'artifacts\b\evidence'
+$EvidenceRoot = Join-Path $RepoRoot 'artifacts\android\firebase-messaging\evidence'
 $PackageName = 'dev.dokidango.bharness'
 
 function Resolve-Adb {

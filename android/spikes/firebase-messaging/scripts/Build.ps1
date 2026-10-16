@@ -9,8 +9,8 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($gitOutput)) {
     throw "Failed to resolve repository root from '$PSScriptRoot' using git."
 }
 $RepoRoot = (Resolve-Path -LiteralPath $gitOutput).Path
-$ProjectRoot = Join-Path $RepoRoot 'android\spikes\firebase-messaging\android'
-$ArtifactsRoot = Join-Path $RepoRoot 'artifacts\b'
+$ProjectRoot = Join-Path $RepoRoot 'android\spikes\firebase-messaging'
+$ArtifactsRoot = Join-Path $RepoRoot 'artifacts\android\firebase-messaging'
 $ToolingRoot = Join-Path $ArtifactsRoot 'tooling'
 $PackageRoot = Join-Path $ArtifactsRoot 'package'
 $GradleVersion = '9.1.0'

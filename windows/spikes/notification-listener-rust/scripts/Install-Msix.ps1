@@ -16,7 +16,7 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($gitOutput)) {
     throw "Failed to resolve repository root from '$PSScriptRoot' using git."
 }
 $RepoRoot = (Resolve-Path -LiteralPath $gitOutput).Path
-$PackageDir = Join-Path $RepoRoot 'artifacts\a21\package'
+$PackageDir = Join-Path $RepoRoot 'artifacts\windows\notification-listener-rust\package'
 $MsixPath = Join-Path $PackageDir 'DokiDango.A21RustHarness-x64.msix'
 $CerPath = Join-Path $PackageDir 'DokiDango.A21Test.cer'
 

@@ -9,11 +9,11 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($gitOutput)) {
     throw "Failed to resolve repository root from '$PSScriptRoot' using git."
 }
 $RepoRoot = (Resolve-Path -LiteralPath $gitOutput).Path
-$CargoManifest = Join-Path $RepoRoot 'windows\spikes\notification-listener-rust\rust\Cargo.toml'
-$RustExe = Join-Path $RepoRoot 'windows\spikes\notification-listener-rust\rust\target\release\doki-dango-a21-rust-harness.exe'
+$CargoManifest = Join-Path $RepoRoot 'windows\spikes\notification-listener-rust\Cargo.toml'
+$RustExe = Join-Path $RepoRoot 'windows\spikes\notification-listener-rust\target\release\doki-dango-notification-listener-rust.exe'
 $ManifestTemplate = Join-Path $RepoRoot 'windows\spikes\notification-listener-rust\packaging\AppxManifest.xml'
-$AssetsSource = Join-Path $RepoRoot 'windows\spikes\notification-listener-dotnet\packaging\Assets'
-$ArtifactsRoot = Join-Path $RepoRoot 'artifacts\a21'
+$AssetsSource = Join-Path $RepoRoot 'windows\tests\fixtures\notifications\package-assets'
+$ArtifactsRoot = Join-Path $RepoRoot 'artifacts\windows\notification-listener-rust'
 $StageDir = Join-Path $ArtifactsRoot 'msix-stage-x64'
 $PackageDir = Join-Path $ArtifactsRoot 'package'
 $MsixPath = Join-Path $PackageDir 'DokiDango.A21RustHarness-x64.msix'
@@ -92,7 +92,7 @@ Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $StageDir
 New-Item -ItemType Directory -Force -Path $StageDir, $PackageDir | Out-Null
 Remove-Item -Force -ErrorAction SilentlyContinue $MsixPath, $CerPath
 
-Copy-Item -LiteralPath $RustExe -Destination (Join-Path $StageDir 'doki-dango-a21-rust-harness.exe')
+Copy-Item -LiteralPath $RustExe -Destination (Join-Path $StageDir 'doki-dango-notification-listener-rust.exe')
 Copy-Item -LiteralPath $AssetsSource -Destination (Join-Path $StageDir 'Assets') -Recurse -Force
 Copy-Item -LiteralPath $ManifestTemplate -Destination (Join-Path $StageDir 'AppxManifest.xml') -Force
 
