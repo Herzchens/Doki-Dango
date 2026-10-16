@@ -1,0 +1,18 @@
+# Auto-detect text files and normalize line endings to LF on commit
+* text=auto eol=lf
+
+# Explicit binary files
+*.cer binary
+*.pfx binary
+*.msix binary
+*.appx binary
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.exe binary
+*.dll binary
+*.pdb binary
+*.jar binary
+*.keystore binary
+*.jks binary
