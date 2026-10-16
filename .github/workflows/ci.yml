@@ -31,7 +31,7 @@ jobs:
         shell: powershell
         run: |
           $failed = $false
-          $files = @(Get-ChildItem -LiteralPath .\scripts -Recurse -File -Filter '*.ps1')
+          $files = @(git ls-files '*.ps1' '*.psm1' | ForEach-Object { Get-Item -LiteralPath $_ })
           foreach ($file in $files) {
               $tokens = $null
               $errors = $null
@@ -57,7 +57,7 @@ jobs:
         shell: pwsh
         run: |
           $failed = $false
-          $files = @(Get-ChildItem -LiteralPath .\scripts -Recurse -File -Filter '*.ps1')
+          $files = @(git ls-files '*.ps1' '*.psm1' | ForEach-Object { Get-Item -LiteralPath $_ })
           foreach ($file in $files) {
               $tokens = $null
               $errors = $null
@@ -139,7 +139,7 @@ jobs:
       - name: Build Windows notification reference
         shell: powershell
         run: |
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test\windows-notification-reference\Build-Unpackaged.ps1
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\spikes\notification-listener-dotnet\scripts\Build-Unpackaged.ps1
 
   android-fcm-harness:
     name: Android FCM harness build
@@ -198,7 +198,7 @@ jobs:
       - name: Build Android FCM harness
         shell: powershell
         run: |
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test\android-fcm\Build.ps1
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\android\spikes\firebase-messaging\scripts\Build.ps1
 
 
   windows-rust-harness:
@@ -225,15 +225,15 @@ jobs:
         shell: pwsh
         run: |
           rustup component add rustfmt clippy --toolchain 1.99.0
-          cargo fmt --manifest-path .\tests\harnesses\windows-notification-listener-rust\rust\Cargo.toml -- --check
+          cargo fmt --manifest-path .\windows\spikes\notification-listener-rust\rust\Cargo.toml -- --check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo clippy --manifest-path .\tests\harnesses\windows-notification-listener-rust\rust\Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path .\windows\spikes\notification-listener-rust\rust\Cargo.toml --all-targets -- -D warnings
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build Rust notification harness
         shell: pwsh
         run: |
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test\windows-notification-rust\Build.ps1
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\spikes\notification-listener-rust\scripts\Build.ps1
 
 
   windows-host:
@@ -278,7 +278,7 @@ jobs:
       - name: Credential protection runtime gate
         shell: powershell
         run: |
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test\windows-host\Test-CredentialProtection.ps1
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\tests\credential-protection\Test-CredentialProtection.ps1
 
 
   windows-package:
@@ -305,7 +305,7 @@ jobs:
       - name: Validate package identity
         shell: pwsh
         run: |
-          [xml]$manifest = Get-Content -LiteralPath .\packaging\windows\AppxManifest.xml -Raw
+          [xml]$manifest = Get-Content -LiteralPath .\windows\packaging\AppxManifest.xml -Raw
           $ns = New-Object System.Xml.XmlNamespaceManager($manifest.NameTable)
           $ns.AddNamespace('f', 'http://schemas.microsoft.com/appx/manifest/foundation/windows10')
           $ns.AddNamespace('uap', 'http://schemas.microsoft.com/appx/manifest/uap/windows10')
@@ -355,23 +355,23 @@ jobs:
       - name: Build unsigned MSIX
         shell: pwsh
         run: |
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\package\windows\Build-Package.ps1
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\scripts\package\Build-Package.ps1
 
       - name: Validate versioned package build
         shell: powershell
         run: |
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test\windows-host\Test-VersionedPackageBuild.ps1
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\tests\packaging\Test-VersionedPackageBuild.ps1
 
       - name: Generate release integrity metadata
         shell: pwsh
         run: |
           $sourceCommit = (git rev-parse HEAD).Trim()
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\release\windows\New-ReleaseIntegrity.ps1 -SourceCommit $sourceCommit
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\scripts\release\New-ReleaseIntegrity.ps1 -SourceCommit $sourceCommit
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\release\windows\New-CargoSpdxSbom.ps1 -SourceCommit $sourceCommit
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\scripts\release\New-CargoSpdxSbom.ps1 -SourceCommit $sourceCommit
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Validate release integrity gates
         shell: powershell
         run: |
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test\windows-host\Test-ReleaseIntegrity.ps1
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\tests\packaging\Test-ReleaseIntegrity.ps1

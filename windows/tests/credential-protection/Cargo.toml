@@ -1,0 +1,8 @@
+[package]
+name = "doki-dango-credential-protection-harness"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+doki-dango-host = { path = "../../host" }
