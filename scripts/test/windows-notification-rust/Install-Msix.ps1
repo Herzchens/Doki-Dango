@@ -11,7 +11,11 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
     throw 'Run this script from an elevated PowerShell window. Trusting the local test certificate requires administrator rights.'
 }
 
-$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+$gitOutput = (& git -C $PSScriptRoot rev-parse --show-toplevel 2>&1 | Out-String).Trim()
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($gitOutput)) {
+    throw "Failed to resolve repository root from '$PSScriptRoot' using git."
+}
+$RepoRoot = (Resolve-Path -LiteralPath $gitOutput).Path
 $PackageDir = Join-Path $RepoRoot 'artifacts\a21\package'
 $MsixPath = Join-Path $PackageDir 'DokiDango.A21RustHarness-x64.msix'
 $CerPath = Join-Path $PackageDir 'DokiDango.A21Test.cer'

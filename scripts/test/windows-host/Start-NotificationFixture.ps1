@@ -7,7 +7,11 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2.0
 
-$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+$gitOutput = (& git -C $PSScriptRoot rev-parse --show-toplevel 2>&1 | Out-String).Trim()
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($gitOutput)) {
+    throw "Failed to resolve repository root from '$PSScriptRoot' using git."
+}
+$RepoRoot = (Resolve-Path -LiteralPath $gitOutput).Path
 $PagePath = Join-Path $RepoRoot 'tests\fixtures\windows-notification\host\index.html'
 $Html = [IO.File]::ReadAllText($PagePath)
 $Body = [Text.Encoding]::UTF8.GetBytes($Html)

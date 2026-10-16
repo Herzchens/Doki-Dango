@@ -7,7 +7,11 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2.0
 
-$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+$gitOutput = (& git -C $PSScriptRoot rev-parse --show-toplevel 2>&1 | Out-String).Trim()
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($gitOutput)) {
+    throw "Failed to resolve repository root from '$PSScriptRoot' using git."
+}
+$RepoRoot = (Resolve-Path -LiteralPath $gitOutput).Path
 $PackageDir = Join-Path $RepoRoot 'artifacts\windows\package'
 $Publisher = 'CN=ItzHerzchen'
 $FriendlyName = 'Doki-Dango Development Signing'
@@ -41,7 +45,7 @@ if (-not [string]::IsNullOrWhiteSpace($cerDirectory)) {
     New-Item -ItemType Directory -Force -Path $cerDirectory | Out-Null
 }
 
-$markerScript = (Resolve-Path (Join-Path $PSScriptRoot '..\..\release\windows\CertificateMarkers.ps1')).Path
+$markerScript = (Resolve-Path (Join-Path $RepoRoot 'scripts\release\windows\CertificateMarkers.ps1')).Path
 . $markerScript
 $DevelopmentMarkerUrl = Get-DokiDangoDevelopmentSignerMarkerUrl
 
