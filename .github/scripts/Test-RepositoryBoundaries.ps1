@@ -4,9 +4,20 @@ param()
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2.0
 
-$gitOutput = (& git -C $PSScriptRoot rev-parse --show-toplevel 2>&1 | Out-String).Trim()
+try {
+    $gitOutput = (& git -C $PSScriptRoot rev-parse --show-toplevel 2>&1 | Out-String).Trim()
+}
+catch {
+    Write-Host "::error::Failed to execute git rev-parse from '$PSScriptRoot': $_"
+    exit 1
+}
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($gitOutput)) {
-    throw "Failed to resolve repository root from '$PSScriptRoot' using git."
+    Write-Host "::error::Failed to resolve repository root from '$PSScriptRoot' using git: $gitOutput"
+    exit 1
+}
+if (-not (Test-Path -LiteralPath $gitOutput)) {
+    Write-Host "::error::Resolved repository root does not exist: '$gitOutput'"
+    exit 1
 }
 $RepoRoot = (Resolve-Path -LiteralPath $gitOutput).Path
 
@@ -25,19 +36,28 @@ function Get-TrackedFiles {
         [Parameter(Mandatory = $true)]
         [string[]]$Patterns,
         [Parameter(Mandatory = $true)]
-        [string]$Description
+        [string]$Description,
+        [switch]$Optional
     )
 
     $cmdArgs = @('-C', $RepoRoot, 'ls-files', '--') + $Patterns
-    $output = & git @cmdArgs 2>&1
+    try {
+        $output = & git @cmdArgs 2>&1
+    }
+    catch {
+        Write-Host "::error::git ls-files execution failed for ${Description}: $_"
+        exit 1
+    }
     if ($LASTEXITCODE -ne 0) {
-        $msg = $output -join "`n"
-        throw "git ls-files failed for $Description with exit code ${LASTEXITCODE}: $msg"
+        $msg = ($output | Out-String).Trim()
+        Write-Host "::error::git ls-files failed for $Description with exit code ${LASTEXITCODE}: $msg"
+        exit 1
     }
 
-    $files = @($output | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-    if ($files.Count -eq 0) {
-        throw "Expected tracked $Description files in repository, but git ls-files returned none."
+    $files = @($output | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique)
+    if (-not $Optional -and $files.Count -eq 0) {
+        Write-Host "::error::Expected tracked $Description files in repository, but git ls-files returned none."
+        exit 1
     }
 
     return $files
@@ -196,8 +216,9 @@ foreach ($relPs in $psFiles) {
     }
 }
 
-# 3. Tracked Gradle file dependency inspection
-$gradleFiles = Get-TrackedFiles @('*.gradle') 'Gradle'
+# 3. Tracked Gradle and Kotlin DSL dependency inspection (Optional ecosystem)
+$gradlePatterns = @('*.gradle', '*.gradle.kts', 'settings.gradle', 'settings.gradle.kts')
+$gradleFiles = Get-TrackedFiles $gradlePatterns 'Gradle' -Optional
 foreach ($relGradle in $gradleFiles) {
     $absGradle = Join-Path $RepoRoot $relGradle
     $gradleDir = Split-Path -Parent $absGradle
@@ -211,19 +232,34 @@ foreach ($relGradle in $gradleFiles) {
             continue
         }
 
-        # Check file('...') or files('...') or projectDir path references
-        if ($lineText -match '(?:file|files|projectDir\s*=)\s*\(?[''"]([^''"]+)[''"]') {
+        # Check local filesystem and project composition references (file, files, fileTree, includeBuild, projectDir)
+        if ($lineText -match '(?:(?:file|files|fileTree|includeBuild)\s*\(?\s*(?:dir\s*[:=]\s*)?|projectDir\s*=\s*(?:(?:file|File)\s*\(\s*)?)[''"]([^''"]+)[''"]') {
             $rawPath = $matches[1]
-            # Skip simple single names without slashes or variables
-            if ($rawPath -match '[\\/]') {
-                $resolvedPath = [IO.Path]::GetFullPath((Join-Path $gradleDir $rawPath))
-                if (-not (Test-PathInsideRepo $resolvedPath)) {
-                    Add-Violation $relGradle ($i + 1) "Gradle path points outside repository root: $rawPath"
-                    continue
-                }
 
-                $depRepoRel = $resolvedPath.Substring($RepoRoot.Length).TrimStart('\', '/')
-                Check-PathBoundaries $relGradle ($i + 1) $depRepoRel 'Gradle path reference'
+            # Ignore remote maven coordinates (e.g. "group:artifact:version")
+            if ($rawPath -notmatch '^[a-zA-Z0-9._-]+:[a-zA-Z0-9._-]+') {
+                if ($rawPath -match '[\\/]' -or $rawPath -match '^\.\.') {
+                    $resolvedPath = [IO.Path]::GetFullPath((Join-Path $gradleDir $rawPath))
+                    if (-not (Test-PathInsideRepo $resolvedPath)) {
+                        Add-Violation $relGradle ($i + 1) "Gradle local reference points outside repository root: $rawPath"
+                        continue
+                    }
+
+                    $depRepoRel = $resolvedPath.Substring($RepoRoot.Length).TrimStart('\', '/')
+                    Check-PathBoundaries $relGradle ($i + 1) $depRepoRel 'Gradle local path reference'
+                }
+            }
+        }
+
+        # Check project(':foo') references
+        if ($lineText -match 'project\s*\(\s*[''"]([^''"]+)[''"]\)') {
+            $projName = $matches[1]
+            $normGradle = $relGradle -replace '\\', '/'
+            if ($normGradle -match '^android/' -and $projName -match '(?i)windows') {
+                Add-Violation $relGradle ($i + 1) "Android Gradle file references Windows project: $projName"
+            }
+            if ($normGradle -match '^windows/' -and $projName -match '(?i)android') {
+                Add-Violation $relGradle ($i + 1) "Windows Gradle file references Android project: $projName"
             }
         }
 
@@ -232,11 +268,17 @@ foreach ($relGradle in $gradleFiles) {
         if ($normGradle -match '^android/' -and $lineText -match '(?i)windows[\\/]') {
             Add-Violation $relGradle ($i + 1) "Android Gradle file references Windows path: $lineText"
         }
+        if ($normGradle -match '^windows/' -and $lineText -match '(?i)android[\\/]') {
+            Add-Violation $relGradle ($i + 1) "Windows Gradle file references Android path: $lineText"
+        }
+        if ($normGradle -notmatch 'spikes/' -and $lineText -match '(?i)spikes[\\/]') {
+            Add-Violation $relGradle ($i + 1) "Production/test Gradle file references spike path: $lineText"
+        }
     }
 }
 
-# 4. Tracked .NET project file dependency inspection
-$csprojFiles = Get-TrackedFiles @('*.csproj') '.NET project'
+# 4. Tracked .NET project file dependency inspection (Optional ecosystem)
+$csprojFiles = Get-TrackedFiles @('*.csproj') '.NET project' -Optional
 foreach ($relCsproj in $csprojFiles) {
     $absCsproj = Join-Path $RepoRoot $relCsproj
     $csprojDir = Split-Path -Parent $absCsproj
@@ -251,7 +293,7 @@ foreach ($relCsproj in $csprojFiles) {
         }
 
         # Check ProjectReference Include, Reference HintPath, or Import Project
-        if ($lineText -match '(?:ProjectReference\s+Include|HintPath|Import\s+Project)\s*=\s*"([^"]+)"' -or
+        if ($lineText -match '(?:ProjectReference\s+Include|HintPath|Import\s+Project)\s*=\s*[''"]([^''"]+)[''"]' -or
             $lineText -match '<HintPath>([^<]+)</HintPath>') {
             $rawPath = $matches[1]
             $resolvedPath = [IO.Path]::GetFullPath((Join-Path $csprojDir $rawPath))
@@ -268,6 +310,9 @@ foreach ($relCsproj in $csprojFiles) {
         $normCsproj = $relCsproj -replace '\\', '/'
         if ($normCsproj -match '^windows/' -and $lineText -match '(?i)android[\\/]') {
             Add-Violation $relCsproj ($i + 1) "Windows .NET project references Android path: $lineText"
+        }
+        if ($normCsproj -notmatch 'spikes/' -and $lineText -match '(?i)spikes[\\/]') {
+            Add-Violation $relCsproj ($i + 1) "Production/test .NET project references spike path: $lineText"
         }
     }
 }
