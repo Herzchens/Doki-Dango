@@ -9,8 +9,8 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($gitOutput)) {
     throw "Failed to resolve repository root from '$PSScriptRoot' using git."
 }
 $RepoRoot = (Resolve-Path -LiteralPath $gitOutput).Path
-$ProjectRoot = Join-Path $RepoRoot 'android\spikes\firebase-messaging\android'
-$ArtifactsRoot = Join-Path $RepoRoot 'artifacts\b'
+$ProjectRoot = Join-Path $RepoRoot 'android\spikes\firebase-messaging'
+$ArtifactsRoot = Join-Path $RepoRoot 'artifacts\android\firebase-messaging'
 $ToolingRoot = Join-Path $ArtifactsRoot 'tooling'
 $PackageRoot = Join-Path $ArtifactsRoot 'package'
 $GradleVersion = '9.1.0'
@@ -79,7 +79,7 @@ if (-not (Test-Path -LiteralPath $sourceApk)) {
     throw "Expected debug APK not found: $sourceApk"
 }
 
-$outputApk = Join-Path $PackageRoot 'DokiDango.BHarness-debug.apk'
+$outputApk = Join-Path $PackageRoot 'DokiDango.FirebaseMessaging-debug.apk'
 Copy-Item -Force -LiteralPath $sourceApk -Destination $outputApk
 
-Write-Host "Built B Android harness: $outputApk"
+Write-Host "Built Android Firebase Messaging harness: $outputApk"

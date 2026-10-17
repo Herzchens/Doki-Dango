@@ -1,4 +1,4 @@
-package dev.dokidango.bharness
+package dev.dokidango.firebase.messaging
 
 import android.os.Process
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -52,7 +52,7 @@ class DokiMessagingService : FirebaseMessagingService() {
             outcome = "success",
             data = JSONObject().apply {
                 put("testId", testId)
-                put("foreground", DokiBApplication.isForeground())
+                put("foreground", DokiFirebaseMessagingApplication.isForeground())
                 put("pid", Process.myPid())
                 put("dataKeyCount", payload.size)
             },
@@ -87,6 +87,6 @@ class DokiMessagingService : FirebaseMessagingService() {
 
     private companion object {
         const val TEST_ID_KEY = "doki_test_id"
-        const val TEST_ID_PREFIX = "DOKI-B-"
+        const val TEST_ID_PREFIX = "DOKI-"
     }
 }

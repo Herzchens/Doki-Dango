@@ -2,8 +2,8 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$ProjectId,
-    [string]$FidPath = (Join-Path $env:LOCALAPPDATA 'Doki-Dango\B\secrets\fid.txt'),
-    [string]$AccessTokenPath = (Join-Path $env:LOCALAPPDATA 'Doki-Dango\B\secrets\access-token.json'),
+    [string]$FidPath = (Join-Path $env:LOCALAPPDATA 'Doki-Dango\FirebaseMessaging\secrets\fid.txt'),
+    [string]$AccessTokenPath = (Join-Path $env:LOCALAPPDATA 'Doki-Dango\FirebaseMessaging\secrets\access-token.json'),
     [string]$TestId,
     [switch]$ValidateOnly
 )
@@ -18,8 +18,8 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($gitOutput)) {
     throw "Failed to resolve repository root from '$PSScriptRoot' using git."
 }
 $RepoRoot = (Resolve-Path -LiteralPath $gitOutput).Path
-$EvidenceRoot = Join-Path $RepoRoot 'artifacts\b\evidence'
-$PackageName = 'dev.dokidango.bharness'
+$EvidenceRoot = Join-Path $RepoRoot 'artifacts\android\firebase-messaging\evidence'
+$PackageName = 'dev.dokidango.firebase.messaging'
 
 if (-not (Test-Path -LiteralPath $FidPath)) {
     throw "FID secret file not found: $FidPath"
@@ -36,10 +36,10 @@ if ([string]::IsNullOrWhiteSpace($fid) -or [string]::IsNullOrWhiteSpace($token))
 }
 
 if ([string]::IsNullOrWhiteSpace($TestId)) {
-    $TestId = 'DOKI-B-{0}-{1}' -f (Get-Date -Format 'yyyyMMdd-HHmmss'), ([Guid]::NewGuid().ToString('N').Substring(0, 8))
+    $TestId = 'DOKI-FIREBASE-MESSAGING-{0}-{1}' -f (Get-Date -Format 'yyyyMMdd-HHmmss'), ([Guid]::NewGuid().ToString('N').Substring(0, 8))
 }
-if (-not $TestId.StartsWith('DOKI-B-', [StringComparison]::Ordinal)) {
-    throw 'TestId must start with DOKI-B-.'
+if (-not $TestId.StartsWith('DOKI-', [StringComparison]::Ordinal)) {
+    throw 'TestId must start with DOKI-.'
 }
 
 $payload = [ordered]@{

@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = 'dev.dokidango.bharness'
+    namespace = 'dev.dokidango.firebase.messaging'
 
     compileSdk {
         version = release(36) {
@@ -15,8 +15,8 @@ android {
     buildToolsVersion = '36.1.0'
 
     defaultConfig {
-        // Disposable B-spike identity only. This is not Doki-Dango's production application ID.
-        applicationId = 'dev.dokidango.bharness'
+        // Disposable test harness identity only. This is not Doki-Dango's production application ID.
+        applicationId = 'dev.dokidango.firebase.messaging'
         minSdk = 24
         targetSdk = 36
         versionCode = 1

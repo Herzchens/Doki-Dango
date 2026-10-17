@@ -1,7 +1,7 @@
 using Windows.UI.Notifications;
 using Windows.UI.Notifications.Management;
 
-namespace DokiDango.A1Harness;
+namespace DokiDango.NotificationListenerDotNet;
 
 internal sealed class NotificationProbe : IDisposable
 {
@@ -9,7 +9,7 @@ internal sealed class NotificationProbe : IDisposable
     private readonly object _filterGate = new();
     private UserNotificationListener? _listener;
     private bool _eventSubscribed;
-    private string _marker = "DOKI-A1-";
+    private string _marker = "DOKI-NOTIFICATION-";
     private HashSet<string> _allowedTextSources = new(StringComparer.OrdinalIgnoreCase);
 
     public NotificationProbe(EvidenceWriter evidence)

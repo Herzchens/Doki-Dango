@@ -5,7 +5,7 @@ members = [
     "windows/platform",
 ]
 exclude = [
-    "windows/spikes/notification-listener-rust/rust",
+    "windows/spikes/notification-listener-rust",
     "windows/tests/credential-protection",
 ]
 resolver = "3"

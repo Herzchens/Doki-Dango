@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace DokiDango.A1Harness;
+namespace DokiDango.NotificationListenerDotNet;
 
 internal sealed class EvidenceWriter : IDisposable
 {
@@ -12,11 +12,11 @@ internal sealed class EvidenceWriter : IDisposable
         var directory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Doki-Dango",
-            "A1",
+            "NotificationListenerDotNet",
             "evidence");
 
         Directory.CreateDirectory(directory);
-        EvidencePath = Path.Combine(directory, $"a1-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}.jsonl");
+        EvidencePath = Path.Combine(directory, $"notification-listener-dotnet-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}.jsonl");
         _writer = new StreamWriter(
             new FileStream(EvidencePath, FileMode.CreateNew, FileAccess.Write, FileShare.Read),
             new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false))
@@ -34,7 +34,7 @@ internal sealed class EvidenceWriter : IDisposable
         var record = new
         {
             timestampUtc = DateTimeOffset.UtcNow,
-            phase = "A1",
+            phase = "notification_listener_dotnet",
             operation,
             outcome,
             hresult = exception is null ? null : $"0x{unchecked((uint)exception.HResult):X8}",

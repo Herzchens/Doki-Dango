@@ -6,14 +6,14 @@
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   IgnorableNamespaces="uap uap3 rescap">
   <Identity
-    Name="Herzchens.DokiDango.A1Harness"
-    Publisher="CN=Doki-Dango A1 Test"
+    Name="Herzchens.DokiDango.NotificationListenerDotNet"
+    Publisher="CN=Doki-Dango Notification Listener DotNet Test"
     Version="0.1.0.0"
     ProcessorArchitecture="__ARCH__" />
 
   <Properties>
-    <DisplayName>Doki-Dango A1 Harness</DisplayName>
-    <PublisherDisplayName>Doki-Dango A1 Test</PublisherDisplayName>
+    <DisplayName>Doki-Dango Notification Listener .NET</DisplayName>
+    <PublisherDisplayName>Doki-Dango Notification Listener DotNet Test</PublisherDisplayName>
     <Description>Windows notification listener feasibility harness.</Description>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -32,10 +32,10 @@
   <Applications>
     <Application
       Id="App"
-      Executable="DokiDango.A1Harness.exe"
+      Executable="DokiDango.NotificationListenerDotNet.exe"
       EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
-        DisplayName="Doki-Dango A1 Harness"
+        DisplayName="Doki-Dango Notification Listener .NET"
         Description="Windows notification listener feasibility harness."
         BackgroundColor="transparent"
         Square44x44Logo="Assets\Square44x44Logo.png"

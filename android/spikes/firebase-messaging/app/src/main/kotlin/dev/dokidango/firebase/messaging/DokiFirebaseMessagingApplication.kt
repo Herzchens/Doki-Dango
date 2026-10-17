@@ -1,4 +1,4 @@
-package dev.dokidango.bharness
+package dev.dokidango.firebase.messaging
 
 import android.app.Activity
 import android.app.Application
@@ -8,7 +8,7 @@ import com.google.firebase.FirebaseApp
 import org.json.JSONObject
 import java.util.concurrent.atomic.AtomicInteger
 
-class DokiBApplication : Application(), Application.ActivityLifecycleCallbacks {
+class DokiFirebaseMessagingApplication : Application(), Application.ActivityLifecycleCallbacks {
     override fun onCreate() {
         super.onCreate()
         registerActivityLifecycleCallbacks(this)
@@ -19,7 +19,7 @@ class DokiBApplication : Application(), Application.ActivityLifecycleCallbacks {
             outcome = "observed",
             data = JSONObject().apply {
                 put("pid", Process.myPid())
-                put("configPresent", ConfigStore.load(this@DokiBApplication).isComplete())
+                put("configPresent", ConfigStore.load(this@DokiFirebaseMessagingApplication).isComplete())
             },
         )
 

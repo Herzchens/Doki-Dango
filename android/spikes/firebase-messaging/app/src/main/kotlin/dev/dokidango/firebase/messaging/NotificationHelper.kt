@@ -1,4 +1,4 @@
-package dev.dokidango.bharness
+package dev.dokidango.firebase.messaging
 
 import android.Manifest
 import android.app.Notification
@@ -11,7 +11,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 
 internal object NotificationHelper {
-    private const val CHANNEL_ID = "doki_b_synthetic"
+    private const val CHANNEL_ID = "doki_firebase_messaging_synthetic"
 
     fun post(context: Context, testId: String): PostResult {
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -25,11 +25,11 @@ internal object NotificationHelper {
             manager.createNotificationChannel(
                 NotificationChannel(
                     CHANNEL_ID,
-                    "Doki-Dango B synthetic tests",
+                    "Doki-Dango Firebase Messaging synthetic tests",
                     NotificationManager.IMPORTANCE_HIGH,
                 ).apply {
                     description =
-                        "Synthetic notifications used by the Doki-Dango B FCM feasibility harness."
+                        "Synthetic notifications used by the Doki-Dango Firebase Messaging harness."
                 },
             )
         }

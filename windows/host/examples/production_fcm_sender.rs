@@ -34,8 +34,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     if args.next().is_some() {
         return Err("unexpected extra arguments".into());
     }
-    if !test_id.starts_with("DOKI-B-PROD-") {
-        return Err("test ID must start with DOKI-B-PROD-".into());
+    if !test_id.starts_with("DOKI-") {
+        return Err("test ID must start with DOKI-".into());
     }
 
     let fid_raw = fs::read_to_string(fid_path)?;
@@ -66,7 +66,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     data.insert("doki_test_id".to_string(), envelope.message_id.clone());
 
     let mut message = FcmDataMessage::new(fid, data);
-    message.android_package_name = Some("dev.dokidango.bharness".to_string());
+    message.android_package_name = Some("dev.dokidango.firebase.messaging".to_string());
     message.ttl_seconds = 60;
 
     // Never report FCM acceptance as handset delivery.
