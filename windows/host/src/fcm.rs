@@ -594,7 +594,7 @@ mod tests {
         let message = FcmDataMessage {
             fid: "synthetic-fid".to_string(),
             data,
-            android_package_name: Some("dev.dokidango.bharness".to_string()),
+            android_package_name: Some("dev.dokidango.firebase.messaging".to_string()),
             ttl_seconds: 60,
         };
 
@@ -616,7 +616,7 @@ mod tests {
         assert_eq!(value["message"]["android"]["ttl"], "60s");
         assert_eq!(
             value["message"]["android"]["restricted_package_name"],
-            "dev.dokidango.bharness"
+            "dev.dokidango.firebase.messaging"
         );
         assert!(value["message"].get("token").is_none());
         assert!(value["message"].get("notification").is_none());

@@ -16,9 +16,9 @@ $AssetsSource = Join-Path $RepoRoot 'windows\tests\fixtures\notifications\packag
 $ArtifactsRoot = Join-Path $RepoRoot 'artifacts\windows\notification-listener-rust'
 $StageDir = Join-Path $ArtifactsRoot 'msix-stage-x64'
 $PackageDir = Join-Path $ArtifactsRoot 'package'
-$MsixPath = Join-Path $PackageDir 'DokiDango.A21RustHarness-x64.msix'
-$CerPath = Join-Path $PackageDir 'DokiDango.A21Test.cer'
-$Publisher = 'CN=Doki-Dango A21 Test'
+$MsixPath = Join-Path $PackageDir 'DokiDango.NotificationListenerRust-x64.msix'
+$CerPath = Join-Path $PackageDir 'DokiDango.NotificationListenerRust-Test.cer'
+$Publisher = 'CN=Doki-Dango Notification Listener Rust Test'
 
 function Get-WindowsSdkBinRoots {
     $roots = @()
@@ -114,7 +114,7 @@ if (-not $cert) {
     $cert = New-SelfSignedCertificate -Type Custom -KeyUsage DigitalSignature -CertStoreLocation 'Cert:\CurrentUser\My' -TextExtension @(
         '2.5.29.37={text}1.3.6.1.5.5.7.3.3',
         '2.5.29.19={text}'
-    ) -Subject $Publisher -FriendlyName 'Doki-Dango A21 Test'
+    ) -Subject $Publisher -FriendlyName 'Doki-Dango Notification Listener Rust Test'
 }
 
 Export-Certificate -Cert $cert -FilePath $CerPath -Force | Out-Null

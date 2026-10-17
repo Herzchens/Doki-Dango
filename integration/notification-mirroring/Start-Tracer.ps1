@@ -1,14 +1,15 @@
 [CmdletBinding()]
 param(
-    [string]$CredentialPath = (Join-Path $env:LOCALAPPDATA 'Doki-Dango\Host\credentials\firebase-service-account.dpapi'),
-
-    [string]$FidPath = (Join-Path $env:LOCALAPPDATA 'Doki-Dango\B\secrets\fid.txt'),
-
+    [Parameter(Mandatory = $true)]
     [string]$ProjectId,
 
-    [string]$A1EvidencePath,
+    [string]$CredentialPath = (Join-Path $env:LOCALAPPDATA 'Doki-Dango\Host\credentials\firebase-service-account.dpapi'),
 
-    [string]$MarkerPrefix = 'DOKI-A1-',
+    [string]$FidPath = (Join-Path $env:LOCALAPPDATA 'Doki-Dango\FirebaseMessaging\secrets\fid.txt'),
+
+    [string]$ListenerEvidencePath,
+
+    [string]$MarkerPrefix = 'DOKI-NOTIFICATION-',
 
     [int]$TimeoutSeconds = 120
 )
@@ -23,7 +24,7 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($gitOutput)) {
 $RepoRoot = (Resolve-Path -LiteralPath $gitOutput).Path
 $HostSenderScript = Join-Path $RepoRoot 'windows\tests\host\Test-ProductionFcmSender.ps1'
 $EvidenceRoot = Join-Path $RepoRoot 'artifacts\integration\notification-mirroring\evidence'
-$PackageName = 'dev.dokidango.bharness'
+$PackageName = 'dev.dokidango.firebase.messaging'
 
 function Resolve-Adb {
     $command = Get-Command adb -ErrorAction SilentlyContinue
@@ -60,25 +61,25 @@ function Assert-OneAuthorizedDevice([string]$Adb) {
     }
 }
 
-function Resolve-A1EvidencePath {
-    if ($A1EvidencePath) {
-        if (-not (Test-Path -LiteralPath $A1EvidencePath)) {
-            throw "A1 evidence file not found: $A1EvidencePath"
+function Resolve-ListenerEvidencePath {
+    if ($ListenerEvidencePath) {
+        if (-not (Test-Path -LiteralPath $ListenerEvidencePath)) {
+            throw "Notification listener evidence file not found: $ListenerEvidencePath"
         }
-        return (Resolve-Path -LiteralPath $A1EvidencePath).Path
+        return (Resolve-Path -LiteralPath $ListenerEvidencePath).Path
     }
 
-    $root = Join-Path $env:LOCALAPPDATA 'Doki-Dango\A1\evidence'
+    $root = Join-Path $env:LOCALAPPDATA 'Doki-Dango\NotificationListenerDotNet\evidence'
     if (-not (Test-Path -LiteralPath $root)) {
-        throw "A1 evidence directory not found: $root"
+        throw "Notification listener evidence directory not found: $root"
     }
 
-    $latest = Get-ChildItem -LiteralPath $root -Filter 'a1-*.jsonl' -File |
+    $latest = Get-ChildItem -LiteralPath $root -Filter 'notification-listener-dotnet-*.jsonl' -File |
         Sort-Object LastWriteTimeUtc -Descending |
         Select-Object -First 1
 
     if (-not $latest) {
-        throw "No A1 evidence file found under $root"
+        throw "No notification listener evidence file found under $root"
     }
 
     return $latest.FullName
@@ -98,13 +99,14 @@ function Read-JsonLines([string]$Path) {
             throw "Invalid JSONL in ${Path}: $($_.Exception.Message)"
         }
     }
+
     return @($records)
 }
 
 function Get-AndroidEvidence([string]$Adb) {
-    $raw = (& $Adb exec-out run-as $PackageName cat files/b-evidence.jsonl 2>$null | Out-String)
+    $raw = (& $Adb exec-out run-as $PackageName cat files/firebase-messaging-evidence.jsonl 2>$null | Out-String)
     if ($LASTEXITCODE -ne 0) {
-        throw 'Could not read B runtime evidence from the Android debug app.'
+        throw 'Could not read Firebase Messaging runtime evidence from the Android debug app.'
     }
 
     $records = @()
@@ -131,16 +133,16 @@ if (-not (Test-Path -LiteralPath $CredentialPath)) {
     throw "Protected credential file not found: $CredentialPath"
 }
 if (-not (Test-Path -LiteralPath $FidPath)) {
-    throw "B FID secret not found: $FidPath"
+    throw "Firebase Messaging FID secret not found: $FidPath"
 }
 
 $adb = Resolve-Adb
 Assert-OneAuthorizedDevice $adb
 
-$a1Path = Resolve-A1EvidencePath
-$a1Records = Read-JsonLines $a1Path
+$listenerPath = Resolve-ListenerEvidencePath
+$listenerRecords = Read-JsonLines $listenerPath
 
-$launch = $a1Records |
+$launch = $listenerRecords |
     Where-Object {
         $_.operation -eq 'harness_launch' -and
         $_.outcome -eq 'success'
@@ -148,15 +150,15 @@ $launch = $a1Records |
     Select-Object -Last 1
 
 if (-not $launch) {
-    throw 'A1 evidence has no successful harness_launch record.'
+    throw 'Notification listener evidence has no successful harness_launch record.'
 }
 
 $packageForm = [string]$launch.data.PackageForm
 if ($packageForm -ne 'packaged') {
-    throw "A2.0 requires the packaged A1 listener path; observed package form '$packageForm'."
+    throw "Notification mirroring tracer requires the packaged listener path; observed package form '$packageForm'."
 }
 
-$subscription = $a1Records |
+$subscription = $listenerRecords |
     Where-Object {
         $_.operation -eq 'NotificationChanged.subscribe' -and
         $_.outcome -eq 'success'
@@ -164,22 +166,22 @@ $subscription = $a1Records |
     Select-Object -Last 1
 
 if (-not $subscription) {
-    throw 'A1 event listener is not proven subscribed in the current evidence file. Start Events in the packaged A1 harness first.'
+    throw 'Notification event listener is not proven subscribed in the current evidence file. Start Events in the packaged harness first.'
 }
 
-$startIndex = $a1Records.Count
+$startIndex = $listenerRecords.Count
 $startedUtc = [DateTimeOffset]::UtcNow
 $deadline = $startedUtc.AddSeconds($TimeoutSeconds)
 
-Write-Host "A2.0 tracer started: $($startedUtc.ToString('o'))"
-Write-Host "A1 evidence: $a1Path"
-Write-Host 'Waiting for a NEW synthetic Windows notification observed by the packaged A1 listener...'
+Write-Host "Notification mirroring tracer started: $($startedUtc.ToString('o'))"
+Write-Host "Listener evidence: $listenerPath"
+Write-Host 'Waiting for a NEW synthetic Windows notification observed by the packaged listener...'
 
 $windowsRecord = $null
 
 while ([DateTimeOffset]::UtcNow -lt $deadline -and -not $windowsRecord) {
     Start-Sleep -Milliseconds 250
-    $current = Read-JsonLines $a1Path
+    $current = Read-JsonLines $listenerPath
 
     if ($current.Count -le $startIndex) {
         continue
@@ -202,24 +204,24 @@ while ([DateTimeOffset]::UtcNow -lt $deadline -and -not $windowsRecord) {
 }
 
 if (-not $windowsRecord) {
-    throw "Timed out after $TimeoutSeconds seconds waiting for a synthetic A1 event snapshot."
+    throw "Timed out after $TimeoutSeconds seconds waiting for a synthetic notification event snapshot."
 }
 
 $title = [string]$windowsRecord.data.title
-$markerMatch = [regex]::Match($title, '^DOKI-A1-(\d{13})-([0-9a-fA-F]+)')
+$markerMatch = [regex]::Match($title, '^DOKI-NOTIFICATION-(\d{13})-([0-9a-fA-F]+)')
 if (-not $markerMatch.Success) {
-    throw "Synthetic A1 title does not contain the expected timestamped marker: $title"
+    throw "Synthetic title does not contain the expected timestamped marker: $title"
 }
 
 $sourceEpochMs = [Int64]$markerMatch.Groups[1].Value
 $sourceSuffix = $markerMatch.Groups[2].Value.ToLowerInvariant()
 $sourceCreatedUtc = [DateTimeOffset]::FromUnixTimeMilliseconds($sourceEpochMs)
 $listenerObservedUtc = [DateTimeOffset]::Parse([string]$windowsRecord.timestampUtc)
-$testId = "DOKI-B-PROD-A20-$sourceEpochMs-$sourceSuffix"
+$testId = "DOKI-NOTIFICATION-MIRROR-$sourceEpochMs-$sourceSuffix"
 
 Write-Host "Windows source marker: $($markerMatch.Value)"
 Write-Host "Listener observed: $($listenerObservedUtc.ToString('o'))"
-Write-Host "Sending A2.0 test ID via production FCM sender: $testId"
+Write-Host "Sending test ID via production FCM sender: $testId"
 
 $sendOutput = @(
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $HostSenderScript `
@@ -238,7 +240,19 @@ if ($sendOk.Count -ne 1) {
     throw "Production FCM sender did not report SEND_OK: $outText"
 }
 
-$fcmAcceptedUtc = [DateTimeOffset]::UtcNow
+$sendOkLine = [string]$sendOk[0]
+$parsedProjectId = $null
+if ($sendOkLine -match '\bproject_id=(\S+)') {
+    $parsedProjectId = $Matches[1]
+}
+if ([string]::IsNullOrWhiteSpace($parsedProjectId)) {
+    throw "Could not parse project_id from SEND_OK record: $sendOkLine"
+}
+if ($parsedProjectId -ne $ProjectId) {
+    throw "Project ID mismatch: parameter was '$ProjectId' but FCM sender reported '$parsedProjectId'."
+}
+
+$senderCompletedUtc = [DateTimeOffset]::UtcNow
 $androidDeadline = [DateTimeOffset]::UtcNow.AddSeconds($TimeoutSeconds)
 $callback = $null
 $notification = $null
@@ -270,22 +284,23 @@ while ([DateTimeOffset]::UtcNow -lt $androidDeadline) {
 }
 
 if (-not $callback) {
-    throw "Android callback was not observed for A2.0 test ID $testId"
+    throw "Android callback was not observed for test ID $testId"
 }
 if (-not $notification) {
-    throw "Android local notification was not observed for A2.0 test ID $testId"
+    throw "Android local notification was not observed for test ID $testId"
 }
 
 $callbackUtc = [DateTimeOffset]::Parse([string]$callback.timestampUtc)
 $notificationUtc = [DateTimeOffset]::Parse([string]$notification.timestampUtc)
 
 New-Item -ItemType Directory -Force -Path $EvidenceRoot | Out-Null
-$outputPath = Join-Path $EvidenceRoot ("a20-{0}.json" -f ($testId -replace '[^A-Za-z0-9_.-]', '_'))
+$outputPath = Join-Path $EvidenceRoot ("notification-mirroring-{0}.json" -f ($testId -replace '[^A-Za-z0-9_.-]', '_'))
 
 $result = [ordered]@{
-    phase = 'A2.0'
+    phase = 'notification_mirroring'
     result = 'PASS'
     testId = $testId
+    projectId = $ProjectId
     source = [ordered]@{
         appDisplayName = [string]$windowsRecord.data.appDisplayName
         syntheticMarker = $markerMatch.Value
@@ -300,7 +315,7 @@ $result = [ordered]@{
         accepted = $true
         implementation = 'production_fcm_sender'
         senderOutput = [string]$sendOk[0]
-        acceptedUtc = $fcmAcceptedUtc.ToString('o')
+        senderCompletedUtc = $senderCompletedUtc.ToString('o')
     }
     android = [ordered]@{
         callbackUtc = $callbackUtc.ToString('o')
@@ -312,10 +327,10 @@ $result = [ordered]@{
 
 $result | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $outputPath -Encoding utf8
 
-Write-Host 'A2.0 E2E PASS'
+Write-Host 'Notification mirroring E2E PASS'
 Write-Host "Evidence: $outputPath"
 Write-Host "Windows source created: $($sourceCreatedUtc.ToString('o'))"
 Write-Host "Listener observed:      $($listenerObservedUtc.ToString('o'))"
-Write-Host "FCM accepted:           $($fcmAcceptedUtc.ToString('o'))"
+Write-Host "Sender completed:       $($senderCompletedUtc.ToString('o'))"
 Write-Host "Android callback:       $($callbackUtc.ToString('o'))"
 Write-Host "Local notification:     $($notificationUtc.ToString('o'))"

@@ -9,8 +9,8 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($gitOutput)) {
     throw "Failed to resolve repository root from '$PSScriptRoot' using git."
 }
 $RepoRoot = (Resolve-Path -LiteralPath $gitOutput).Path
-$ApkPath = Join-Path $RepoRoot 'artifacts\android\firebase-messaging\package\DokiDango.BHarness-debug.apk'
-$PackageName = 'dev.dokidango.bharness'
+$ApkPath = Join-Path $RepoRoot 'artifacts\android\firebase-messaging\package\DokiDango.FirebaseMessaging-debug.apk'
+$PackageName = 'dev.dokidango.firebase.messaging'
 
 function Resolve-Adb {
     $command = Get-Command adb -ErrorAction SilentlyContinue
@@ -60,4 +60,4 @@ if ($LASTEXITCODE -ne 0) {
     throw "Could not start $PackageName"
 }
 
-Write-Host 'Installed and launched Doki-Dango B Harness.'
+Write-Host 'Installed and launched Doki-Dango Firebase Messaging harness.'

@@ -10,7 +10,7 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($gitOutput)) {
 }
 $RepoRoot = (Resolve-Path -LiteralPath $gitOutput).Path
 $EvidenceRoot = Join-Path $RepoRoot 'artifacts\android\firebase-messaging\evidence'
-$PackageName = 'dev.dokidango.bharness'
+$PackageName = 'dev.dokidango.firebase.messaging'
 
 function Resolve-Adb {
     $command = Get-Command adb -ErrorAction SilentlyContinue
@@ -26,13 +26,13 @@ function Resolve-Adb {
 }
 
 $adb = Resolve-Adb
-$content = (& $adb exec-out run-as $PackageName cat files/b-evidence.jsonl 2>$null | Out-String)
+$content = (& $adb exec-out run-as $PackageName cat files/firebase-messaging-evidence.jsonl 2>$null | Out-String)
 if ($LASTEXITCODE -ne 0) {
-    throw 'Could not read B evidence from the debug app.'
+    throw 'Could not read Firebase Messaging evidence from the debug app.'
 }
 
 New-Item -ItemType Directory -Force -Path $EvidenceRoot | Out-Null
-$path = Join-Path $EvidenceRoot ("b-runtime-{0}.jsonl" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
+$path = Join-Path $EvidenceRoot ("firebase-messaging-runtime-{0}.jsonl" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
 [IO.File]::WriteAllText($path, $content.TrimEnd() + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
 
-Write-Host "B runtime evidence: $path"
+Write-Host "Firebase Messaging runtime evidence: $path"

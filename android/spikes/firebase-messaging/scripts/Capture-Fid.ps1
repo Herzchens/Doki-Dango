@@ -4,8 +4,8 @@ param()
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2.0
 
-$PackageName = 'dev.dokidango.bharness'
-$SecretRoot = Join-Path $env:LOCALAPPDATA 'Doki-Dango\B\secrets'
+$PackageName = 'dev.dokidango.firebase.messaging'
+$SecretRoot = Join-Path $env:LOCALAPPDATA 'Doki-Dango\FirebaseMessaging\secrets'
 $FidPath = Join-Path $SecretRoot 'fid.txt'
 
 function Resolve-Adb {
@@ -22,7 +22,7 @@ function Resolve-Adb {
 }
 
 $adb = Resolve-Adb
-$fid = (& $adb exec-out run-as $PackageName cat files/b-fid.txt 2>$null | Out-String).Trim()
+$fid = (& $adb exec-out run-as $PackageName cat files/firebase-fid.txt 2>$null | Out-String).Trim()
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($fid)) {
     throw 'FID is not available yet. Complete runtime Firebase initialization and register() first.'
 }

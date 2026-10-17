@@ -4,9 +4,9 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
-        android:name=".DokiBApplication"
+        android:name=".DokiFirebaseMessagingApplication"
         android:allowBackup="false"
-        android:label="Doki-Dango B Harness"
+        android:label="Doki-Dango Firebase Messaging"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="false">

@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Doki-Dango A1 synthetic notification</title>
+  <title>Doki-Dango synthetic notification</title>
 </head>
 <body>
-  <h1>Doki-Dango A1 synthetic browser notification</h1>
-  <p>This page creates test-only browser notifications for the A1 listener harness.</p>
+  <h1>Doki-Dango synthetic browser notification</h1>
+  <p>This page creates test-only browser notifications for the listener harness.</p>
 
   <p>
     <label>
@@ -25,7 +25,7 @@
     const status = document.getElementById("status");
 
     function newMarker() {
-      return `DOKI-A1-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+      return `DOKI-NOTIFICATION-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
     }
 
     marker.value = newMarker();

@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace DokiDango.A1Harness;
+namespace DokiDango.NotificationListenerDotNet;
 
 internal static class PackageIdentityProbe
 {

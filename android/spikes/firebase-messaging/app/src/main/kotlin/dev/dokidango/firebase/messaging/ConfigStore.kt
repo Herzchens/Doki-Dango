@@ -1,10 +1,10 @@
-package dev.dokidango.bharness
+package dev.dokidango.firebase.messaging
 
 import android.content.Context
 import com.google.firebase.FirebaseOptions
 
 internal object ConfigStore {
-    private const val PREFS = "doki_b_runtime"
+    private const val PREFS = "doki_firebase_messaging_runtime"
     private const val KEY_PROJECT_ID = "project_id"
     private const val KEY_APPLICATION_ID = "application_id"
     private const val KEY_API_KEY = "api_key"

@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = 'DokiDangoBHarness'
+rootProject.name = 'DokiDangoFirebaseMessaging'
 include ':app'

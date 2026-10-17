@@ -26,4 +26,4 @@ if (-not (Test-Path -LiteralPath $exe)) {
     throw "Rust harness executable not found: $exe"
 }
 
-Write-Host "A2.1 Rust harness: $exe"
+Write-Host "Rust notification listener harness: $exe"

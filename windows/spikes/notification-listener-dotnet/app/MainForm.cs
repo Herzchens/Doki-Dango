@@ -1,13 +1,13 @@
 using System.Diagnostics;
 
-namespace DokiDango.A1Harness;
+namespace DokiDango.NotificationListenerDotNet;
 
 internal sealed class MainForm : Form
 {
     private readonly EvidenceWriter _evidence;
     private readonly NotificationProbe _probe;
     private readonly SemaphoreSlim _operationGate = new(1, 1);
-    private readonly TextBox _markerBox = new() { Text = "DOKI-A1-" };
+    private readonly TextBox _markerBox = new() { Text = "DOKI-NOTIFICATION-" };
     private readonly TextBox _allowedSourcesBox = new();
     private readonly TextBox _logBox = new()
     {
@@ -21,7 +21,7 @@ internal sealed class MainForm : Form
 
     public MainForm()
     {
-        Text = "Doki-Dango A1 Windows Notification Listener Harness";
+        Text = "Doki-Dango Windows Notification Listener .NET Harness";
         Width = 1000;
         Height = 720;
         StartPosition = FormStartPosition.CenterScreen;
@@ -175,8 +175,8 @@ internal sealed class MainForm : Form
         {
             MessageBox.Show(
                 this,
-                "Another A1 probe is still running. Wait for it to finish before starting the next probe.",
-                "A1 probe already running",
+                "Another notification probe is still running. Wait for it to finish before starting the next probe.",
+                "Notification probe already running",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
             return;
@@ -191,7 +191,7 @@ internal sealed class MainForm : Form
             MessageBox.Show(
                 this,
                 $"{ex.GetType().Name}: {ex.Message}{Environment.NewLine}HRESULT: 0x{unchecked((uint)ex.HResult):X8}",
-                "A1 probe error",
+                "Notification probe error",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
         }

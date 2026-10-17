@@ -3,7 +3,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$CredentialPath,
 
-    [string]$FidPath = (Join-Path $env:LOCALAPPDATA 'Doki-Dango\B\secrets\fid.txt'),
+    [string]$FidPath = (Join-Path $env:LOCALAPPDATA 'Doki-Dango\FirebaseMessaging\secrets\fid.txt'),
 
     [string]$TestId
 )
@@ -26,12 +26,12 @@ if (-not (Test-Path -LiteralPath $FidPath)) {
 }
 
 if ([string]::IsNullOrWhiteSpace($TestId)) {
-    $TestId = 'DOKI-B-PROD-{0}-{1}' -f (
+    $TestId = 'DOKI-PROD-FCM-{0}-{1}' -f (
         [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
     ), ([Guid]::NewGuid().ToString('N').Substring(0, 8))
 }
-if (-not $TestId.StartsWith('DOKI-B-PROD-', [StringComparison]::Ordinal)) {
-    throw 'TestId must start with DOKI-B-PROD-.'
+if (-not $TestId.StartsWith('DOKI-', [StringComparison]::Ordinal)) {
+    throw 'TestId must start with DOKI-.'
 }
 
 $sentAt = [DateTimeOffset]::UtcNow

@@ -79,7 +79,7 @@ if (-not (Test-Path -LiteralPath $sourceApk)) {
     throw "Expected debug APK not found: $sourceApk"
 }
 
-$outputApk = Join-Path $PackageRoot 'DokiDango.BHarness-debug.apk'
+$outputApk = Join-Path $PackageRoot 'DokiDango.FirebaseMessaging-debug.apk'
 Copy-Item -Force -LiteralPath $sourceApk -Destination $outputApk
 
-Write-Host "Built B Android harness: $outputApk"
+Write-Host "Built Android Firebase Messaging harness: $outputApk"

@@ -157,5 +157,5 @@ $snapshot = [ordered]@{
 $path = Join-Path $EvidenceRoot ("snapshot-{0}.json" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
 $snapshot | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 -Path $path
 
-Write-Host "A1 snapshot: $path"
+Write-Host "Notification listener snapshot: $path"
 $snapshot | ConvertTo-Json -Depth 8

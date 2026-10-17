@@ -1,4 +1,4 @@
-package dev.dokidango.bharness
+package dev.dokidango.firebase.messaging
 
 import android.content.Context
 import org.json.JSONObject
@@ -11,7 +11,7 @@ import java.util.Locale
 import java.util.TimeZone
 
 internal object EvidenceStore {
-    private const val FILE_NAME = "b-evidence.jsonl"
+    private const val FILE_NAME = "firebase-messaging-evidence.jsonl"
     private val lock = Any()
 
     fun write(
@@ -24,7 +24,7 @@ internal object EvidenceStore {
         try {
             val record = JSONObject().apply {
                 put("timestampUtc", utcTimestamp())
-                put("phase", "B")
+                put("phase", "firebase_messaging")
                 put("operation", operation)
                 put("outcome", outcome)
                 put("data", data)

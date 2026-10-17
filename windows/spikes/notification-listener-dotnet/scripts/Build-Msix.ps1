@@ -12,16 +12,16 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($gitOutput)) {
     throw "Failed to resolve repository root from '$PSScriptRoot' using git."
 }
 $RepoRoot = (Resolve-Path -LiteralPath $gitOutput).Path
-$Project = Join-Path $RepoRoot 'windows\spikes\notification-listener-dotnet\app\DokiDango.A1Harness.csproj'
+$Project = Join-Path $RepoRoot 'windows\spikes\notification-listener-dotnet\app\DokiDango.NotificationListenerDotNet.csproj'
 $ManifestTemplate = Join-Path $RepoRoot 'windows\spikes\notification-listener-dotnet\packaging\AppxManifest.xml.in'
 $AssetsSource = Join-Path $RepoRoot 'windows\tests\fixtures\notifications\package-assets'
 $ArtifactsRoot = Join-Path $RepoRoot 'artifacts\windows\notification-listener-dotnet'
 $PublishDir = Join-Path $ArtifactsRoot "publish-$Architecture"
 $StageDir = Join-Path $ArtifactsRoot "msix-stage-$Architecture"
 $PackageDir = Join-Path $ArtifactsRoot 'package'
-$MsixPath = Join-Path $PackageDir "DokiDango.A1Harness-$Architecture.msix"
-$CerPath = Join-Path $PackageDir 'DokiDango.A1Test.cer'
-$Publisher = 'CN=Doki-Dango A1 Test'
+$MsixPath = Join-Path $PackageDir "DokiDango.NotificationListenerDotNet-$Architecture.msix"
+$CerPath = Join-Path $PackageDir 'DokiDango.NotificationListenerDotNet-Test.cer'
+$Publisher = 'CN=Doki-Dango Notification Listener DotNet Test'
 $NuGetSource = 'https://api.nuget.org/v3/index.json'
 
 function Get-WindowsSdkBinRoots {
@@ -142,7 +142,7 @@ if (-not $cert) {
             '2.5.29.19={text}'
         ) `
         -Subject $Publisher `
-        -FriendlyName 'Doki-Dango A1 Test'
+        -FriendlyName 'Doki-Dango Notification Listener DotNet Test'
 }
 
 Export-Certificate -Cert $cert -FilePath $CerPath -Force | Out-Null
