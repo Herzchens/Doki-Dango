@@ -27,7 +27,7 @@ Doki-Dango protocol version 1 defines a logical envelope for mirrored notificati
 | `sent_at` | Non-empty String | Yes | Intended ISO 8601 UTC timestamp of message transmission (validated as non-empty string in v1). |
 | `expires_at` | Non-empty String | Yes | Intended ISO 8601 UTC timestamp after which the message must be discarded (validated as non-empty string in v1). |
 | `payload` | Valid JSON Value | Yes | Arbitrary structured notification payload (object, array, primitive). |
-| `sender_seq` | Unsigned 64-bit Integer | No | Optional monotonically increasing sequence assigned by the sender. |
+| `sender_seq` | Unsigned 64-bit Integer | No | Optional unsigned 64-bit sender diagnostic sequence. It is not required for correctness, ordering, deduplication, or state application. |
 
 ---
 
@@ -45,10 +45,14 @@ Doki-Dango protocol version 1 defines a logical envelope for mirrored notificati
 4. **String Content and Timestamps**:
    - Required string fields (`message_id`, `pair_id`, `kind`, `source_id`, `sent_at`, `expires_at`) cannot be empty or consist solely of whitespace characters.
    - For `sent_at` and `expires_at`, ISO 8601 UTC (e.g., `2026-10-18T10:00:00Z`) is the canonical semantic representation. In Protocol v1, boundary validation enforces non-empty, non-whitespace strings; strict ISO 8601 parsing may be enforced in future protocol revisions.
-5. **Optional Sequence (`sender_seq`)**:
-   - When omitted, the envelope is valid.
+5. **Optional Sender Sequence (`sender_seq`)**:
+   - `sender_seq` is optional and diagnostics-only.
+   - When omitted, the envelope is fully valid. Absence of `sender_seq` must never make an otherwise valid envelope invalid.
    - When present, it must be an unsigned 64-bit integer.
    - Explicit `null` value is invalid; callers must omit the field entirely when absent.
+   - Receivers MUST NOT require `sender_seq` for correctness.
+   - Receivers MUST NOT use `sender_seq` for notification ordering, stale/new revision decisions, deduplication, state application, or delivery guarantees.
+   - Correctness and ordering are governed strictly by protocol semantics such as `source_revision`, not `sender_seq`.
 6. **Forward Compatibility (Unknown Fields)**:
    - For a supported protocol version, any unexpected extra fields must be safely tolerated and ignored by receivers.
 
