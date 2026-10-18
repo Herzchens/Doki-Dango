@@ -19,9 +19,9 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($gitOutput)) {
     throw "Failed to resolve repository root from '$PSScriptRoot' using git."
 }
 $RepoRoot = (Resolve-Path -LiteralPath $gitOutput).Path
-$PackageDir = Join-Path $RepoRoot 'artifacts\a1\package'
-$MsixPath = Join-Path $PackageDir "DokiDango.A1Harness-$Architecture.msix"
-$CerPath = Join-Path $PackageDir 'DokiDango.A1Test.cer'
+$PackageDir = Join-Path $RepoRoot 'artifacts\windows\notification-listener-dotnet\package'
+$MsixPath = Join-Path $PackageDir "DokiDango.NotificationListenerDotNet-$Architecture.msix"
+$CerPath = Join-Path $PackageDir 'DokiDango.NotificationListenerDotNet-Test.cer'
 
 if (-not (Test-Path $MsixPath)) {
     throw "MSIX not found: $MsixPath"
@@ -43,5 +43,5 @@ Write-Host "Signer subject: $($signature.SignerCertificate.Subject)"
 
 Add-AppxPackage -Path $MsixPath -ForceApplicationShutdown
 
-Get-AppxPackage -Name 'Herzchens.DokiDango.A1Harness' |
+Get-AppxPackage -Name 'Herzchens.DokiDango.NotificationListenerDotNet' |
     Select-Object Name, PackageFullName, Version, Architecture, InstallLocation

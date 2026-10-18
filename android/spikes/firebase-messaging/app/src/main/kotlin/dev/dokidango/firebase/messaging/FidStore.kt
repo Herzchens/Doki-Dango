@@ -1,4 +1,4 @@
-package dev.dokidango.bharness
+package dev.dokidango.firebase.messaging
 
 import android.content.Context
 import java.io.ByteArrayOutputStream
@@ -9,7 +9,7 @@ import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 
 internal object FidStore {
-    private const val FILE_NAME = "b-fid.txt"
+    private const val FILE_NAME = "firebase-fid.txt"
 
     @Throws(Exception::class)
     fun save(context: Context, fid: String) {

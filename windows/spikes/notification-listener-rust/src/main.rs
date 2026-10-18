@@ -20,7 +20,7 @@ use windows::{
     Win32::System::Com::{COINIT_APARTMENTTHREADED, CoInitializeEx, CoUninitialize},
 };
 
-const MARKER: &str = "DOKI-A1-";
+const MARKER: &str = "DOKI-NOTIFICATION-";
 const WINDOWS_TO_UNIX_EPOCH_TICKS: i64 = 116_444_736_000_000_000;
 const TICKS_PER_MILLISECOND: i64 = 10_000;
 
@@ -43,11 +43,11 @@ impl EvidenceWriter {
             .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "LOCALAPPDATA is not set"))?;
         let root = PathBuf::from(local_app_data)
             .join("Doki-Dango")
-            .join("A21")
+            .join("NotificationListenerRust")
             .join("evidence");
         create_dir_all(&root)?;
 
-        let path = root.join(format!("a21-{}.jsonl", unix_ms()));
+        let path = root.join(format!("notification-listener-rust-{}.jsonl", unix_ms()));
         Ok(Self {
             path: Arc::new(path),
         })
@@ -60,7 +60,7 @@ impl EvidenceWriter {
     fn write(&self, operation: &str, outcome: &str, data: Value) {
         let record = json!({
             "timestampUnixMs": unix_ms(),
-            "phase": "A2.1",
+            "phase": "notification_listener_rust",
             "operation": operation,
             "outcome": outcome,
             "data": data,
@@ -310,7 +310,7 @@ fn run() -> windows::core::Result<()> {
         }),
     );
 
-    println!("Doki-Dango A2.1 Rust notification listener parity harness");
+    println!("Doki-Dango Rust notification listener harness");
     println!("Evidence: {}", evidence.path().display());
 
     let listener = match UserNotificationListener::Current() {
@@ -428,7 +428,7 @@ fn run() -> windows::core::Result<()> {
 fn main() {
     if let Err(error) = run() {
         eprintln!(
-            "A2.1 Rust harness failed: {:?}: {}",
+            "Rust notification listener harness failed: {:?}: {}",
             error.code(),
             error.message()
         );

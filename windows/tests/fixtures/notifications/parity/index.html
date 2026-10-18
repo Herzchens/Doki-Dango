@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Doki-Dango A2.1 parity synthetic notification</title>
+  <title>Doki-Dango parity synthetic notification</title>
 </head>
 <body>
-  <h1>Doki-Dango A2.1 parity synthetic notification</h1>
+  <h1>Doki-Dango parity synthetic notification</h1>
   <p>Test-only source for new, replace, and close notification semantics.</p>
 
   <p>
@@ -30,7 +30,7 @@
     let currentNotification = null;
 
     function newMarker() {
-      return "DOKI-A1-" + Date.now() + "-" + Math.random().toString(16).slice(2, 8);
+      return "DOKI-NOTIFICATION-" + Date.now() + "-" + Math.random().toString(16).slice(2, 8);
     }
 
     function showNotification(id, tag, verb) {

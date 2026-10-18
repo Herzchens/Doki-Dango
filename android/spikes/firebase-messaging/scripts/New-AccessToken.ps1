@@ -2,7 +2,7 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$ServiceAccountJson,
-    [string]$OutputPath = (Join-Path $env:LOCALAPPDATA 'Doki-Dango\B\secrets\access-token.json')
+    [string]$OutputPath = (Join-Path $env:LOCALAPPDATA 'Doki-Dango\FirebaseMessaging\secrets\access-token.json')
 )
 
 $ErrorActionPreference = 'Stop'

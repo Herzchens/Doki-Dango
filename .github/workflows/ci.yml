@@ -119,6 +119,11 @@ jobs:
           Write-Host 'Tracked-file and secret hygiene checks passed.'
           exit 0
 
+      - name: Check repository boundaries
+        shell: pwsh
+        run: |
+          pwsh .\.github\scripts\Test-RepositoryBoundaries.ps1
+
   windows-dotnet-reference:
     name: Windows .NET reference build
     runs-on: windows-latest
@@ -225,9 +230,9 @@ jobs:
         shell: pwsh
         run: |
           rustup component add rustfmt clippy --toolchain 1.99.0
-          cargo fmt --manifest-path .\windows\spikes\notification-listener-rust\rust\Cargo.toml -- --check
+          cargo fmt --manifest-path .\windows\spikes\notification-listener-rust\Cargo.toml -- --check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo clippy --manifest-path .\windows\spikes\notification-listener-rust\rust\Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path .\windows\spikes\notification-listener-rust\Cargo.toml --all-targets -- -D warnings
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build Rust notification harness

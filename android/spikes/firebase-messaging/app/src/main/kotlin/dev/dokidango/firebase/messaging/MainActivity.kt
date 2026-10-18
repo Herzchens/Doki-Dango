@@ -1,4 +1,4 @@
-package dev.dokidango.bharness
+package dev.dokidango.firebase.messaging
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -70,12 +70,12 @@ class MainActivity : ComponentActivity() {
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(
-                text = "Doki-Dango B — runtime FCM harness",
+                text = "Doki-Dango Firebase Messaging harness",
                 style = MaterialTheme.typography.headlineSmall,
             )
 
             Text(
-                "Disposable Kotlin/Compose B spike. No google-services.json is embedded. " +
+                "Kotlin/Compose Firebase Messaging harness. No google-services.json is embedded. " +
                     "Runtime FirebaseOptions are stored locally on this device.",
             )
 
@@ -159,7 +159,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun initializeFirebase() {
-        val result = DokiBApplication.initializeDefaultFirebaseApp(
+        val result = DokiFirebaseMessagingApplication.initializeDefaultFirebaseApp(
             application = application,
             trigger = "manual_ui",
         )
@@ -297,7 +297,7 @@ class MainActivity : ComponentActivity() {
             appendLine("FID captured: " + fid.isNotEmpty())
             appendLine("FID fingerprint: " + FidStore.fingerprint(fid))
             appendLine("Notification permission: " + notificationPermission)
-            append("Process foreground: " + DokiBApplication.isForeground())
+            append("Process foreground: " + DokiFirebaseMessagingApplication.isForeground())
         }
     }
 

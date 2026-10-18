@@ -5,6 +5,8 @@
 *.pdb
 **/mutants.out*/
 rustc-ice-*.txt
+windows/spikes/**/Cargo.lock
+windows/tests/**/Cargo.lock
 
 # IDE / Editor configuration
 .idea/
