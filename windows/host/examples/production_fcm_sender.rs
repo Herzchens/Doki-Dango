@@ -1,9 +1,9 @@
 use doki_dango_host::{
     credentials::ProtectedCredentialFile,
     diagnostics::{DiagnosticEvent, Diagnostics},
-    fcm::{FcmDataMessage, FcmSender},
-    protocol::ProtocolEnvelope,
+    fcm::{FcmDataMessage, FcmSender, protocol_envelope_to_fcm_data},
 };
+use doki_dango_protocol::ProtocolEnvelope;
 use std::{env, fs, process};
 
 fn main() {
@@ -47,22 +47,22 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let store = ProtectedCredentialFile::new(credential_path);
     let sender = FcmSender::from_protected_credential_file(&store)?;
 
-    let envelope = ProtocolEnvelope {
-        message_id: test_id.clone(),
-        pair_id: "runtime-test-pair".to_string(),
-        kind: "synthetic.production-fcm".to_string(),
-        source_id: "windows-host-runtime".to_string(),
-        source_revision: 1,
+    let envelope = ProtocolEnvelope::v1(
+        test_id.clone(),
+        "runtime-test-pair",
+        "synthetic.production-fcm",
+        "windows-host-runtime",
+        1,
         sent_at,
         expires_at,
-        payload: serde_json::json!({
+        serde_json::json!({
             "synthetic": true,
             "test_id": test_id,
         }),
-        sender_seq: None,
-    };
+        None,
+    )?;
 
-    let mut data = envelope.to_fcm_data()?;
+    let mut data = protocol_envelope_to_fcm_data(&envelope)?;
     data.insert("doki_test_id".to_string(), envelope.message_id.clone());
 
     let mut message = FcmDataMessage::new(fid, data);

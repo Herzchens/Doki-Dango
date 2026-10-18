@@ -11,6 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 doki-dango-platform-windows = { path = "../platform" }
+doki-dango-protocol = { path = "../../shared/protocol" }
 jsonwebtoken.workspace = true
 serde.workspace = true
 serde_json.workspace = true
