@@ -1,0 +1,548 @@
+[
+  {
+    "name": "valid_minimal_v1",
+    "valid": true,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-001",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {
+        "title": "Synthetic Title",
+        "body": "Synthetic Body"
+      }
+    }
+  },
+  {
+    "name": "valid_with_sender_seq",
+    "valid": true,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-002",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 2,
+      "sent_at": "2026-10-18T10:01:00Z",
+      "expires_at": "2026-10-18T10:06:00Z",
+      "payload": {
+        "title": "Synthetic Title 2"
+      },
+      "sender_seq": 42
+    }
+  },
+  {
+    "name": "valid_unknown_future_field",
+    "valid": true,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-003",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 3,
+      "sent_at": "2026-10-18T10:02:00Z",
+      "expires_at": "2026-10-18T10:07:00Z",
+      "payload": {
+        "title": "Synthetic Title 3"
+      },
+      "future_field": "ignore_me",
+      "future_flag": true,
+      "future_object": {
+        "key": "value"
+      }
+    }
+  },
+  {
+    "name": "valid_nested_payload",
+    "valid": true,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-004",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 4,
+      "sent_at": "2026-10-18T10:03:00Z",
+      "expires_at": "2026-10-18T10:08:00Z",
+      "payload": {
+        "nested": {
+          "items": [1, 2, 3],
+          "details": {
+            "level": "deep"
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "invalid_unsupported_version_future",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 2,
+      "message_id": "msg-err-01",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {}
+    }
+  },
+  {
+    "name": "invalid_unsupported_version_zero",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 0,
+      "message_id": "msg-err-02",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {}
+    }
+  },
+  {
+    "name": "invalid_missing_protocol_version",
+    "valid": false,
+    "envelope": {
+      "message_id": "msg-err-03",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {}
+    }
+  },
+  {
+    "name": "invalid_missing_message_id",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {}
+    }
+  },
+  {
+    "name": "invalid_missing_pair_id",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-err-05",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {}
+    }
+  },
+  {
+    "name": "invalid_missing_kind",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-err-06",
+      "pair_id": "pair-001",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {}
+    }
+  },
+  {
+    "name": "invalid_missing_source_id",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-err-07",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {}
+    }
+  },
+  {
+    "name": "invalid_missing_source_revision",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-err-08",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {}
+    }
+  },
+  {
+    "name": "invalid_missing_sent_at",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-err-09",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {}
+    }
+  },
+  {
+    "name": "invalid_missing_expires_at",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-err-10",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "payload": {}
+    }
+  },
+  {
+    "name": "invalid_missing_payload",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-err-11",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z"
+    }
+  },
+  {
+    "name": "invalid_empty_message_id",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {}
+    }
+  },
+  {
+    "name": "invalid_whitespace_message_id",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "   \t\n  ",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {}
+    }
+  },
+  {
+    "name": "invalid_whitespace_pair_id",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-err-14",
+      "pair_id": "   ",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {}
+    }
+  },
+  {
+    "name": "invalid_whitespace_kind",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-err-15",
+      "pair_id": "pair-001",
+      "kind": "\t\t",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {}
+    }
+  },
+  {
+    "name": "invalid_whitespace_source_id",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-err-16",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": " ",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {}
+    }
+  },
+  {
+    "name": "invalid_whitespace_sent_at",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-err-17",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "sent_at": "  ",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {}
+    }
+  },
+  {
+    "name": "invalid_whitespace_expires_at",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-err-18",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "\n",
+      "payload": {}
+    }
+  },
+  {
+    "name": "invalid_wrong_type_source_revision",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-err-19",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": "invalid_string_revision",
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {}
+    }
+  },
+  {
+    "name": "invalid_wrong_type_protocol_version",
+    "valid": false,
+    "envelope": {
+      "protocol_version": "1",
+      "message_id": "msg-err-20",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {}
+    }
+  },
+  {
+    "name": "invalid_wrong_type_sender_seq",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-err-21",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {},
+      "sender_seq": "not_an_integer"
+    }
+  },
+  {
+    "name": "invalid_negative_sender_seq",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-err-22",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {},
+      "sender_seq": -1
+    }
+  },
+  {
+    "name": "valid_source_revision_u64_max",
+    "valid": true,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-max-rev",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 18446744073709551615,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {
+        "title": "Max Revision"
+      }
+    }
+  },
+  {
+    "name": "valid_sender_seq_u64_max",
+    "valid": true,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-max-seq",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {
+        "title": "Max Seq"
+      },
+      "sender_seq": 18446744073709551615
+    }
+  },
+  {
+    "name": "invalid_negative_source_revision",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-neg-rev",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": -1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {}
+    }
+  },
+  {
+    "name": "invalid_fractional_protocol_version",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1.5,
+      "message_id": "msg-frac-ver",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {}
+    }
+  },
+  {
+    "name": "invalid_fractional_source_revision",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-frac-rev",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 1.5,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {}
+    }
+  },
+  {
+    "name": "invalid_fractional_sender_seq",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-frac-seq",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {},
+      "sender_seq": 1.5
+    }
+  },
+  {
+    "name": "invalid_null_sender_seq",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-null-seq",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {},
+      "sender_seq": null
+    }
+  },
+  {
+    "name": "invalid_source_revision_u64_overflow",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-ovf-rev",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 18446744073709551616,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {}
+    }
+  },
+  {
+    "name": "invalid_sender_seq_u64_overflow",
+    "valid": false,
+    "envelope": {
+      "protocol_version": 1,
+      "message_id": "msg-ovf-seq",
+      "pair_id": "pair-001",
+      "kind": "notification.upsert",
+      "source_id": "source-001",
+      "source_revision": 1,
+      "sent_at": "2026-10-18T10:00:00Z",
+      "expires_at": "2026-10-18T10:05:00Z",
+      "payload": {},
+      "sender_seq": 18446744073709551616
+    }
+  }
+]

@@ -11,6 +11,8 @@ use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
+use doki_dango_protocol::{ProtocolEnvelope, ProtocolError};
+
 use crate::credentials::{CredentialStoreError, ProtectedCredentialFile};
 
 const OAUTH_TOKEN_URI: &str = "https://oauth2.googleapis.com/token";
@@ -29,6 +31,7 @@ pub enum FcmSenderError {
     InvalidServiceAccount(&'static str),
     InvalidTarget(&'static str),
     InvalidPayload(&'static str),
+    Protocol(ProtocolError),
     Json(serde_json::Error),
     Jwt(jsonwebtoken::errors::Error),
     Transport(String),
@@ -53,6 +56,7 @@ impl fmt::Display for FcmSenderError {
             }
             Self::InvalidTarget(reason) => write!(formatter, "FCM target is invalid: {reason}"),
             Self::InvalidPayload(reason) => write!(formatter, "FCM payload is invalid: {reason}"),
+            Self::Protocol(error) => write!(formatter, "protocol validation failed: {error}"),
             Self::Json(error) => write!(formatter, "JSON processing failed: {error}"),
             Self::Jwt(error) => write!(formatter, "service-account JWT creation failed: {error}"),
             Self::Transport(error) => write!(formatter, "FCM transport failed: {error}"),
@@ -77,6 +81,7 @@ impl StdError for FcmSenderError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
             Self::Credential(error) => Some(error),
+            Self::Protocol(error) => Some(error),
             Self::Json(error) => Some(error),
             Self::Jwt(error) => Some(error),
             _ => None,
@@ -87,6 +92,12 @@ impl StdError for FcmSenderError {
 impl From<CredentialStoreError> for FcmSenderError {
     fn from(error: CredentialStoreError) -> Self {
         Self::Credential(error)
+    }
+}
+
+impl From<ProtocolError> for FcmSenderError {
+    fn from(error: ProtocolError) -> Self {
+        Self::Protocol(error)
     }
 }
 
@@ -158,6 +169,38 @@ impl FcmDataMessage {
             ttl_seconds: DEFAULT_TTL_SECONDS,
         }
     }
+}
+
+pub fn protocol_envelope_to_fcm_data(
+    envelope: &ProtocolEnvelope,
+) -> Result<BTreeMap<String, String>, FcmSenderError> {
+    envelope.validate()?;
+
+    let mut data = BTreeMap::new();
+    data.insert(
+        "protocol_version".to_string(),
+        envelope.protocol_version.to_string(),
+    );
+    data.insert("message_id".to_string(), envelope.message_id.clone());
+    data.insert("pair_id".to_string(), envelope.pair_id.clone());
+    data.insert("kind".to_string(), envelope.kind.clone());
+    data.insert("source_id".to_string(), envelope.source_id.clone());
+    data.insert(
+        "source_revision".to_string(),
+        envelope.source_revision.to_string(),
+    );
+    data.insert("sent_at".to_string(), envelope.sent_at.clone());
+    data.insert("expires_at".to_string(), envelope.expires_at.clone());
+    data.insert(
+        "payload".to_string(),
+        serde_json::to_string(&envelope.payload)?,
+    );
+
+    if let Some(sender_seq) = envelope.sender_seq {
+        data.insert("sender_seq".to_string(), sender_seq.to_string());
+    }
+
+    Ok(data)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -668,5 +711,55 @@ mod tests {
         assert!(!is_retryable_send_status(401));
         assert!(!is_retryable_send_status(403));
         assert!(!is_retryable_send_status(404));
+    }
+
+    fn sample_envelope() -> ProtocolEnvelope {
+        ProtocolEnvelope::v1(
+            "msg-1",
+            "pair-1",
+            "notification.upsert",
+            "source-1",
+            7,
+            "2026-10-15T00:00:00Z",
+            "2026-10-15T00:01:00Z",
+            serde_json::json!({"title": "synthetic"}),
+            None,
+        )
+        .expect("valid sample envelope")
+    }
+
+    #[test]
+    fn protocol_adapter_emits_required_fcm_envelope_fields() {
+        let envelope = sample_envelope();
+        let data = protocol_envelope_to_fcm_data(&envelope).expect("fcm data");
+
+        assert_eq!(data["protocol_version"], "1");
+        assert_eq!(data["message_id"], "msg-1");
+        assert_eq!(data["pair_id"], "pair-1");
+        assert_eq!(data["kind"], "notification.upsert");
+        assert_eq!(data["source_id"], "source-1");
+        assert_eq!(data["source_revision"], "7");
+        assert_eq!(data["sent_at"], "2026-10-15T00:00:00Z");
+        assert_eq!(data["expires_at"], "2026-10-15T00:01:00Z");
+        assert_eq!(data["payload"], r#"{"title":"synthetic"}"#);
+        assert!(!data.contains_key("sender_seq"));
+    }
+
+    #[test]
+    fn protocol_adapter_includes_sender_seq_when_present() {
+        let mut envelope = sample_envelope();
+        envelope.sender_seq = Some(42);
+
+        let data = protocol_envelope_to_fcm_data(&envelope).expect("fcm data");
+        assert_eq!(data["sender_seq"], "42");
+    }
+
+    #[test]
+    fn protocol_adapter_rejects_invalid_envelope() {
+        let mut envelope = sample_envelope();
+        envelope.message_id = "   ".to_string();
+
+        let result = protocol_envelope_to_fcm_data(&envelope);
+        assert!(matches!(result, Err(FcmSenderError::Protocol(_))));
     }
 }

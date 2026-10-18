@@ -3,6 +3,7 @@ members = [
     "windows/host",
     "windows/ui",
     "windows/platform",
+    "shared/protocol",
 ]
 exclude = [
     "windows/spikes/notification-listener-rust",

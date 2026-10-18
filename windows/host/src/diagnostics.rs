@@ -194,9 +194,9 @@ fn classify_fcm_error(
             (FcmFailureClass::Credential, None, None)
         }
         FcmSenderError::InvalidServiceAccount(_) => (FcmFailureClass::Configuration, None, None),
-        FcmSenderError::InvalidTarget(_) | FcmSenderError::InvalidPayload(_) => {
-            (FcmFailureClass::Validation, None, None)
-        }
+        FcmSenderError::InvalidTarget(_)
+        | FcmSenderError::InvalidPayload(_)
+        | FcmSenderError::Protocol(_) => (FcmFailureClass::Validation, None, None),
         FcmSenderError::Json(_) | FcmSenderError::Jwt(_) => (FcmFailureClass::Encoding, None, None),
         FcmSenderError::Transport(_) => (FcmFailureClass::Transport, None, None),
         FcmSenderError::HttpStatus { stage, status, .. } => {

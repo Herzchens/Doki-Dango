@@ -231,6 +231,7 @@ name = "doki-dango-host"
 version = "0.1.0"
 dependencies = [
  "doki-dango-platform-windows",
+ "doki-dango-protocol",
  "jsonwebtoken",
  "serde",
  "serde_json",
@@ -244,6 +245,14 @@ version = "0.1.0"
 dependencies = [
  "windows",
  "windows-future",
+]
+
+[[package]]
+name = "doki-dango-protocol"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
