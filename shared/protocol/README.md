@@ -24,8 +24,8 @@ Doki-Dango protocol version 1 defines a logical envelope for mirrored notificati
 | `kind` | Non-empty String | Yes | Message classification (e.g., `notification.upsert`). |
 | `source_id` | Non-empty String | Yes | Unique identifier of the notification source device/subsystem. |
 | `source_revision`| Unsigned 64-bit Integer | Yes | Monotonically increasing revision number for the source state. |
-| `sent_at` | Non-empty String | Yes | ISO 8601 UTC timestamp of message transmission. |
-| `expires_at` | Non-empty String | Yes | ISO 8601 UTC timestamp after which the message must be discarded. |
+| `sent_at` | Non-empty String | Yes | Intended ISO 8601 UTC timestamp of message transmission (validated as non-empty string in v1). |
+| `expires_at` | Non-empty String | Yes | Intended ISO 8601 UTC timestamp after which the message must be discarded (validated as non-empty string in v1). |
 | `payload` | Valid JSON Value | Yes | Arbitrary structured notification payload (object, array, primitive). |
 | `sender_seq` | Unsigned 64-bit Integer | No | Optional monotonically increasing sequence assigned by the sender. |
 
@@ -42,11 +42,13 @@ Doki-Dango protocol version 1 defines a logical envelope for mirrored notificati
 3. **Type Strictness**:
    - Fields must match their declared JSON data types.
    - Mismatched types (e.g., string in place of integer) must be rejected.
-4. **String Content**:
+4. **String Content and Timestamps**:
    - Required string fields (`message_id`, `pair_id`, `kind`, `source_id`, `sent_at`, `expires_at`) cannot be empty or consist solely of whitespace characters.
+   - For `sent_at` and `expires_at`, ISO 8601 UTC (e.g., `2026-10-18T10:00:00Z`) is the canonical semantic representation. In Protocol v1, boundary validation enforces non-empty, non-whitespace strings; strict ISO 8601 parsing may be enforced in future protocol revisions.
 5. **Optional Sequence (`sender_seq`)**:
    - When omitted, the envelope is valid.
    - When present, it must be an unsigned 64-bit integer.
+   - Explicit `null` value is invalid; callers must omit the field entirely when absent.
 6. **Forward Compatibility (Unknown Fields)**:
    - For a supported protocol version, any unexpected extra fields must be safely tolerated and ignored by receivers.
 

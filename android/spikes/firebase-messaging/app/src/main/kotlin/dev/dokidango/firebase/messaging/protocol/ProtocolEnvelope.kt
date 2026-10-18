@@ -1,44 +1,51 @@
 package dev.dokidango.firebase.messaging.protocol
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import org.json.JSONObject
 
 data class ProtocolEnvelope(
-    val protocolVersion: Long,
+    val protocolVersion: UInt,
     val messageId: String,
     val pairId: String,
     val kind: String,
     val sourceId: String,
-    val sourceRevision: Long,
+    val sourceRevision: ULong,
     val sentAt: String,
     val expiresAt: String,
-    val payload: Any?,
-    val senderSeq: Long? = null,
+    val payload: JsonElement,
+    val senderSeq: ULong? = null,
 ) {
     companion object {
-        const val CURRENT_VERSION: Long = 1L
+        const val CURRENT_VERSION: UInt = 1u
 
         @Throws(ProtocolException::class)
         fun fromJson(jsonStr: String): ProtocolEnvelope {
-            val json = try {
-                JSONObject(jsonStr)
+            val element = try {
+                Json.parseToJsonElement(jsonStr)
             } catch (e: Exception) {
                 throw ProtocolException("Malformed JSON: ${e.message}", e)
             }
-            return fromJsonObject(json)
+            if (element !is JsonObject) {
+                throw ProtocolException("Root JSON must be an object, got: ${element.javaClass.simpleName}")
+            }
+            return fromJsonObject(element)
         }
 
         @Throws(ProtocolException::class)
-        fun fromJsonObject(json: JSONObject): ProtocolEnvelope {
-            if (!json.has("protocol_version")) {
+        fun fromJsonObject(json: JsonObject): ProtocolEnvelope {
+            if (!json.containsKey("protocol_version")) {
                 throw ProtocolException("Missing required field: protocol_version")
             }
-            val versionObj = json.opt("protocol_version")
-            if (versionObj !is Number) {
-                throw ProtocolException("protocol_version must be a number, got: ${versionObj?.javaClass?.simpleName}")
+            val versionElem = json["protocol_version"]
+            if (versionElem !is JsonPrimitive || versionElem.isString) {
+                throw ProtocolException("protocol_version must be an unquoted integer, got: $versionElem")
             }
-            val protocolVersion = versionObj.toLong()
-            if (protocolVersion != CURRENT_VERSION) {
-                throw ProtocolException("Unsupported protocol version: $protocolVersion (expected $CURRENT_VERSION)")
+            if (versionElem.content != "1") {
+                throw ProtocolException("Unsupported protocol version: ${versionElem.content} (expected 1)")
             }
 
             val messageId = requireNonEmptyString(json, "message_id")
@@ -46,46 +53,29 @@ data class ProtocolEnvelope(
             val kind = requireNonEmptyString(json, "kind")
             val sourceId = requireNonEmptyString(json, "source_id")
 
-            if (!json.has("source_revision")) {
-                throw ProtocolException("Missing required field: source_revision")
-            }
-            val sourceRevisionObj = json.opt("source_revision")
-            if (sourceRevisionObj !is Number) {
-                throw ProtocolException("source_revision must be a number, got: ${sourceRevisionObj?.javaClass?.simpleName}")
-            }
-            val sourceRevision = sourceRevisionObj.toLong()
-            if (sourceRevision < 0) {
-                throw ProtocolException("source_revision must be non-negative: $sourceRevision")
-            }
+            val sourceRevision = parseU64(json["source_revision"], "source_revision")
 
             val sentAt = requireNonEmptyString(json, "sent_at")
             val expiresAt = requireNonEmptyString(json, "expires_at")
 
-            if (!json.has("payload")) {
+            if (!json.containsKey("payload")) {
                 throw ProtocolException("Missing required field: payload")
             }
-            val payload = json.opt("payload")
+            val payload = json["payload"] ?: JsonNull
 
-            val senderSeq = if (json.has("sender_seq")) {
-                val seqObj = json.opt("sender_seq")
-                if (seqObj == null || seqObj == JSONObject.NULL) {
-                    null
-                } else if (seqObj !is Number) {
-                    throw ProtocolException("sender_seq must be a number, got: ${seqObj.javaClass.simpleName}")
-                } else {
-                    val seqVal = seqObj.toLong()
-                    if (seqVal < 0) {
-                        throw ProtocolException("sender_seq must be non-negative: $seqVal")
-                    }
-                    seqVal
+            val senderSeq = if (json.containsKey("sender_seq")) {
+                val seqElem = json["sender_seq"]
+                if (seqElem is JsonNull) {
+                    throw ProtocolException("sender_seq cannot be null; omit the field if absent")
                 }
+                parseU64(seqElem, "sender_seq")
             } else {
                 null
             }
 
             // Unknown extra fields are safely tolerated and ignored.
             return ProtocolEnvelope(
-                protocolVersion = protocolVersion,
+                protocolVersion = CURRENT_VERSION,
                 messageId = messageId,
                 pairId = pairId,
                 kind = kind,
@@ -98,18 +88,38 @@ data class ProtocolEnvelope(
             )
         }
 
-        private fun requireNonEmptyString(json: JSONObject, field: String): String {
-            if (!json.has(field)) {
+        @Throws(ProtocolException::class)
+        fun fromJsonObject(json: JSONObject): ProtocolEnvelope {
+            return fromJson(json.toString())
+        }
+
+        private fun requireNonEmptyString(json: JsonObject, field: String): String {
+            if (!json.containsKey(field)) {
                 throw ProtocolException("Missing required field: $field")
             }
-            val valueObj = json.opt(field)
-            if (valueObj !is String) {
-                throw ProtocolException("Field $field must be a string, got: ${valueObj?.javaClass?.simpleName}")
+            val elem = json[field]
+            if (elem !is JsonPrimitive || !elem.isString) {
+                throw ProtocolException("Field '$field' must be a string, got: $elem")
             }
-            if (valueObj.trim().isEmpty()) {
-                throw ProtocolException("Field $field cannot be empty or whitespace")
+            if (elem.content.trim().isEmpty()) {
+                throw ProtocolException("Field '$field' cannot be empty or whitespace")
             }
-            return valueObj
+            return elem.content
+        }
+
+        private fun parseU64(elem: JsonElement?, field: String): ULong {
+            if (elem == null) {
+                throw ProtocolException("Missing required field: $field")
+            }
+            if (elem !is JsonPrimitive || elem.isString) {
+                throw ProtocolException("Field '$field' must be an unquoted integer, got: $elem")
+            }
+            val raw = elem.content
+            if (raw.isEmpty() || !raw.all { it in '0'..'9' }) {
+                throw ProtocolException("Field '$field' must be an unsigned integer, got: $raw")
+            }
+            return raw.toULongOrNull()
+                ?: throw ProtocolException("Field '$field' exceeds maximum unsigned 64-bit integer: $raw")
         }
     }
 }

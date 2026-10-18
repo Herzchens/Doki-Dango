@@ -16,8 +16,76 @@ pub struct ProtocolEnvelope {
     pub sent_at: String,
     pub expires_at: String,
     pub payload: Value,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_sender_seq",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub sender_seq: Option<u64>,
+}
+
+fn deserialize_sender_seq<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct SenderSeqVisitor;
+
+    impl<'de> serde::de::Visitor<'de> for SenderSeqVisitor {
+        type Value = Option<u64>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+            formatter.write_str("an unsigned 64-bit integer")
+        }
+
+        fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Ok(Some(v))
+        }
+
+        fn visit_u128<E>(self, v: u128) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            if v <= u64::MAX as u128 {
+                Ok(Some(v as u64))
+            } else {
+                Err(E::custom("sender_seq overflow"))
+            }
+        }
+
+        fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            if v >= 0 {
+                Ok(Some(v as u64))
+            } else {
+                Err(E::custom("sender_seq cannot be negative"))
+            }
+        }
+
+        fn visit_unit<E>(self) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Err(E::custom(
+                "sender_seq cannot be null; omit the field if absent",
+            ))
+        }
+
+        fn visit_none<E>(self) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Err(E::custom(
+                "sender_seq cannot be null; omit the field if absent",
+            ))
+        }
+    }
+
+    deserializer.deserialize_u64(SenderSeqVisitor)
 }
 
 #[derive(Debug)]
@@ -202,5 +270,115 @@ mod tests {
             ProtocolError::EmptyField(field) => assert_eq!(field, "message_id"),
             other => panic!("unexpected error: {other:?}"),
         }
+    }
+
+    #[test]
+    fn boundary_accepts_u64_max() {
+        let json = r#"{
+            "protocol_version": 1,
+            "message_id": "msg-max",
+            "pair_id": "pair-1",
+            "kind": "notification.upsert",
+            "source_id": "source-1",
+            "source_revision": 18446744073709551615,
+            "sent_at": "2026-10-18T10:00:00Z",
+            "expires_at": "2026-10-18T10:05:00Z",
+            "payload": {},
+            "sender_seq": 18446744073709551615
+        }"#;
+
+        let env = ProtocolEnvelope::from_json_str(json).expect("valid u64::MAX");
+        assert_eq!(env.source_revision, u64::MAX);
+        assert_eq!(env.sender_seq, Some(u64::MAX));
+    }
+
+    #[test]
+    fn boundary_rejects_u64_overflow() {
+        let json_rev = r#"{
+            "protocol_version": 1,
+            "message_id": "msg-ovf",
+            "pair_id": "pair-1",
+            "kind": "notification.upsert",
+            "source_id": "source-1",
+            "source_revision": 18446744073709551616,
+            "sent_at": "2026-10-18T10:00:00Z",
+            "expires_at": "2026-10-18T10:05:00Z",
+            "payload": {}
+        }"#;
+        assert!(ProtocolEnvelope::from_json_str(json_rev).is_err());
+
+        let json_seq = r#"{
+            "protocol_version": 1,
+            "message_id": "msg-ovf",
+            "pair_id": "pair-1",
+            "kind": "notification.upsert",
+            "source_id": "source-1",
+            "source_revision": 1,
+            "sent_at": "2026-10-18T10:00:00Z",
+            "expires_at": "2026-10-18T10:05:00Z",
+            "payload": {},
+            "sender_seq": 18446744073709551616
+        }"#;
+        assert!(ProtocolEnvelope::from_json_str(json_seq).is_err());
+    }
+
+    #[test]
+    fn boundary_rejects_explicit_null_sender_seq() {
+        let json = r#"{
+            "protocol_version": 1,
+            "message_id": "msg-null",
+            "pair_id": "pair-1",
+            "kind": "notification.upsert",
+            "source_id": "source-1",
+            "source_revision": 1,
+            "sent_at": "2026-10-18T10:00:00Z",
+            "expires_at": "2026-10-18T10:05:00Z",
+            "payload": {},
+            "sender_seq": null
+        }"#;
+        assert!(ProtocolEnvelope::from_json_str(json).is_err());
+    }
+
+    #[test]
+    fn boundary_rejects_fractional_numbers() {
+        let json_ver = r#"{
+            "protocol_version": 1.5,
+            "message_id": "msg-frac",
+            "pair_id": "pair-1",
+            "kind": "notification.upsert",
+            "source_id": "source-1",
+            "source_revision": 1,
+            "sent_at": "2026-10-18T10:00:00Z",
+            "expires_at": "2026-10-18T10:05:00Z",
+            "payload": {}
+        }"#;
+        assert!(ProtocolEnvelope::from_json_str(json_ver).is_err());
+
+        let json_rev = r#"{
+            "protocol_version": 1,
+            "message_id": "msg-frac",
+            "pair_id": "pair-1",
+            "kind": "notification.upsert",
+            "source_id": "source-1",
+            "source_revision": 1.5,
+            "sent_at": "2026-10-18T10:00:00Z",
+            "expires_at": "2026-10-18T10:05:00Z",
+            "payload": {}
+        }"#;
+        assert!(ProtocolEnvelope::from_json_str(json_rev).is_err());
+
+        let json_seq = r#"{
+            "protocol_version": 1,
+            "message_id": "msg-frac",
+            "pair_id": "pair-1",
+            "kind": "notification.upsert",
+            "source_id": "source-1",
+            "source_revision": 1,
+            "sent_at": "2026-10-18T10:00:00Z",
+            "expires_at": "2026-10-18T10:05:00Z",
+            "payload": {},
+            "sender_seq": 1.5
+        }"#;
+        assert!(ProtocolEnvelope::from_json_str(json_seq).is_err());
     }
 }
