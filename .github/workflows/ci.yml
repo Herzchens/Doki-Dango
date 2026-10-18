@@ -2,6 +2,8 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
@@ -11,10 +13,41 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  detect:
+    name: Detect affected areas
+    runs-on: windows-latest
+    timeout-minutes: 5
+    outputs:
+      run_dotnet: ${{ steps.detect.outputs.run_dotnet }}
+      run_rust_harness: ${{ steps.detect.outputs.run_rust_harness }}
+      run_host: ${{ steps.detect.outputs.run_host }}
+      run_android: ${{ steps.detect.outputs.run_android }}
+      run_package: ${{ steps.detect.outputs.run_package }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Run detector self-tests
+        shell: pwsh
+        run: |
+          pwsh .\.github\scripts\Get-CiAffectedAreas.ps1 -SelfTest
+
+      - name: Detect affected areas
+        id: detect
+        shell: pwsh
+        run: |
+          pwsh .\.github\scripts\Get-CiAffectedAreas.ps1 `
+            -BaseRef "${{ github.event.pull_request.base.sha || github.event.before }}" `
+            -HeadSha "${{ github.event.pull_request.head.sha || github.sha }}" `
+            -EventName "${{ github.event_name }}"
+
   validate:
     name: Parse and hygiene
     runs-on: windows-latest
@@ -26,6 +59,11 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 1
+
+      - name: Run CI required gate self-tests
+        shell: pwsh
+        run: |
+          pwsh .\.github\scripts\Test-CiRequired.ps1 -SelfTest
 
       - name: Parse PowerShell with Windows PowerShell 5.1
         shell: powershell
@@ -126,6 +164,8 @@ jobs:
 
   windows-dotnet-reference:
     name: Windows .NET reference build
+    needs: detect
+    if: needs.detect.outputs.run_dotnet == 'true'
     runs-on: windows-latest
     timeout-minutes: 20
 
@@ -148,6 +188,8 @@ jobs:
 
   android-fcm-harness:
     name: Android FCM harness build
+    needs: detect
+    if: needs.detect.outputs.run_android == 'true'
     runs-on: windows-latest
     timeout-minutes: 30
 
@@ -208,6 +250,8 @@ jobs:
 
   windows-rust-harness:
     name: Windows Rust notification harness build
+    needs: detect
+    if: needs.detect.outputs.run_rust_harness == 'true'
     runs-on: windows-latest
     timeout-minutes: 20
 
@@ -243,6 +287,8 @@ jobs:
 
   windows-host:
     name: Windows Host workspace
+    needs: detect
+    if: needs.detect.outputs.run_host == 'true'
     runs-on: windows-latest
     timeout-minutes: 20
 
@@ -288,7 +334,8 @@ jobs:
 
   windows-package:
     name: Windows package build
-    needs: windows-host
+    needs: [detect, windows-host]
+    if: needs.detect.outputs.run_package == 'true'
     runs-on: windows-latest
     timeout-minutes: 20
 
@@ -380,3 +427,38 @@ jobs:
         shell: powershell
         run: |
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\tests\packaging\Test-ReleaseIntegrity.ps1
+
+  ci-required:
+    name: CI required
+    needs:
+      - detect
+      - validate
+      - windows-dotnet-reference
+      - windows-rust-harness
+      - windows-host
+      - android-fcm-harness
+      - windows-package
+    runs-on: windows-latest
+    if: always()
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Run CI required gate self-tests
+        shell: pwsh
+        run: |
+          pwsh .\.github\scripts\Test-CiRequired.ps1 -SelfTest
+
+      - name: Evaluate aggregate gate
+        shell: pwsh
+        run: |
+          pwsh .\.github\scripts\Test-CiRequired.ps1 `
+            -DetectResult "${{ needs.detect.result }}" `
+            -ValidateResult "${{ needs.validate.result }}" `
+            -ExpectationsJson '${{ toJSON(needs.detect.outputs) }}' `
+            -ResultsJson '${{ toJSON(needs) }}'
