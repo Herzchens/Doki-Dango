@@ -69,9 +69,9 @@ New-Item -ItemType Directory -Force -Path $PackageRoot | Out-Null
 Write-Host "Android SDK: $androidSdk"
 Write-Host "Gradle: $gradle"
 
-& $gradle --no-daemon --stacktrace -p $ProjectRoot :app:assembleDebug
+& $gradle --no-daemon --stacktrace -p $ProjectRoot :app:testDebugUnitTest :app:assembleDebug
 if ($LASTEXITCODE -ne 0) {
-    throw "Gradle build failed with exit code $LASTEXITCODE"
+    throw "Gradle build/test failed with exit code $LASTEXITCODE"
 }
 
 $sourceApk = Join-Path $ProjectRoot 'app\build\outputs\apk\debug\app-debug.apk'
