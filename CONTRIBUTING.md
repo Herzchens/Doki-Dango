@@ -25,7 +25,7 @@ The repository is organized strictly by platform ownership:
 2. **Architectural Discussions**: For substantial architectural changes or shared protocol modifications, open an issue to discuss design intent prior to implementation.
 3. **PR Descriptions**: Public pull request descriptions should be concise and explain **What** changed and **Why**. Avoid internal logs or execution diaries.
 4. **Secret and Hygiene Boundaries**:
-   - Never commit secrets, service account credentials, Firebase instance IDs (FIDs), private keys, certificates, or development tokens.
+   - Never commit secrets, service account credentials, Firebase installation IDs (FIDs), private keys, certificates, or development tokens.
    - Do not commit built packages (`.msix`, `.apk`), build caches, or temporary local evidence logs.
    - Internal planning documents (such as `PLAN.md` or `AGENTS.md`) are not public repository artifacts and must not be committed.
 5. **Testing & CI Gate**:
