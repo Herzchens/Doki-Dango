@@ -1,12 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{
-    error::Error,
-    ffi::c_void,
-    fmt,
-    iter,
-    mem::size_of,
-    os::windows::ffi::OsStrExt,
-};
+use std::{error::Error, ffi::c_void, fmt, iter, mem::size_of, os::windows::ffi::OsStrExt};
 use windows::{
     Win32::{
         Foundation::{
@@ -32,8 +25,7 @@ use windows::{
 };
 
 pub const HOST_UI_IPC_VERSION: u32 = 1;
-pub const HOST_UI_PIPE_NAME: &str =
-    r"\\.\pipe\LOCAL\ItzHerzchen.DokiDango.HostUi.v1";
+pub const HOST_UI_PIPE_NAME: &str = r"\\.\pipe\LOCAL\ItzHerzchen.DokiDango.HostUi.v1";
 
 const HOST_STATUS_KIND: &str = "host_status";
 const HOST_RUNNING_STATE: &str = "running";
@@ -101,7 +93,7 @@ impl fmt::Display for HostUiIpcError {
 
 impl Error for HostUiIpcError {}
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct HostUiRequest {
     ipc_version: u32,
@@ -124,10 +116,7 @@ struct LocalSecurityDescriptor {
 
 impl LocalSecurityDescriptor {
     fn protected_for_creator() -> Result<Self, HostUiIpcError> {
-        debug_assert_eq!(
-            PIPE_SECURITY_SDDL,
-            "D:P(A;;GA;;;SY)(A;;GA;;;OW)"
-        );
+        debug_assert_eq!(PIPE_SECURITY_SDDL, "D:P(A;;GA;;;SY)(A;;GA;;;OW)");
 
         let mut descriptor = PSECURITY_DESCRIPTOR::default();
         unsafe {
@@ -141,9 +130,7 @@ impl LocalSecurityDescriptor {
         .map_err(|_| HostUiIpcError::new(HostUiIpcErrorKind::SecurityDescriptor))?;
 
         if descriptor.is_invalid() {
-            return Err(HostUiIpcError::new(
-                HostUiIpcErrorKind::SecurityDescriptor,
-            ));
+            return Err(HostUiIpcError::new(HostUiIpcErrorKind::SecurityDescriptor));
         }
 
         Ok(Self { value: descriptor })
@@ -186,15 +173,12 @@ impl HostUiIpcServer {
             CreateNamedPipeW(
                 PCWSTR(pipe_name.as_ptr()),
                 PIPE_ACCESS_DUPLEX | FILE_FLAG_FIRST_PIPE_INSTANCE,
-                PIPE_TYPE_MESSAGE
-                    | PIPE_READMODE_MESSAGE
-                    | PIPE_WAIT
-                    | PIPE_REJECT_REMOTE_CLIENTS,
+                PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
                 1,
                 IPC_MAX_MESSAGE_BYTES as u32,
                 IPC_MAX_MESSAGE_BYTES as u32,
                 IPC_TIMEOUT_MS,
-                Some(&attributes),
+                Some(std::ptr::from_ref(&attributes)),
             )
         };
 
@@ -226,11 +210,7 @@ impl HostUiIpcServer {
     fn connect(&self) -> Result<(), HostUiIpcError> {
         match unsafe { ConnectNamedPipe(self.handle, None) } {
             Ok(()) => Ok(()),
-            Err(error)
-                if WIN32_ERROR::from_error(&error) == Some(ERROR_PIPE_CONNECTED) =>
-            {
-                Ok(())
-            }
+            Err(error) if WIN32_ERROR::from_error(&error) == Some(ERROR_PIPE_CONNECTED) => Ok(()),
             Err(_) => Err(HostUiIpcError::new(HostUiIpcErrorKind::Connect)),
         }
     }
@@ -249,9 +229,7 @@ impl HostUiIpcServer {
         } {
             Ok(()) => {}
             Err(error) if WIN32_ERROR::from_error(&error) == Some(ERROR_MORE_DATA) => {
-                return Err(HostUiIpcError::new(
-                    HostUiIpcErrorKind::MessageTooLarge,
-                ));
+                return Err(HostUiIpcError::new(HostUiIpcErrorKind::MessageTooLarge));
             }
             Err(_) => return Err(HostUiIpcError::new(HostUiIpcErrorKind::Read)),
         }
@@ -264,7 +242,7 @@ impl HostUiIpcServer {
         unsafe {
             WriteFile(
                 self.handle,
-                Some(&response),
+                Some(response.as_slice()),
                 Some(&mut bytes_written),
                 None,
             )
@@ -305,9 +283,7 @@ fn query_host_status_at(
     let request = serde_json::to_vec(&request)
         .map_err(|_| HostUiIpcError::new(HostUiIpcErrorKind::InvalidRequest))?;
     if request.len() > IPC_MAX_MESSAGE_BYTES {
-        return Err(HostUiIpcError::new(
-            HostUiIpcErrorKind::MessageTooLarge,
-        ));
+        return Err(HostUiIpcError::new(HostUiIpcErrorKind::MessageTooLarge));
     }
 
     let pipe_name = wide(pipe_name);
@@ -329,13 +305,9 @@ fn query_host_status_at(
     if !call_result.as_bool() {
         let error = WindowsError::from_win32();
         if WIN32_ERROR::from_error(&error) == Some(ERROR_MORE_DATA) {
-            return Err(HostUiIpcError::new(
-                HostUiIpcErrorKind::MessageTooLarge,
-            ));
+            return Err(HostUiIpcError::new(HostUiIpcErrorKind::MessageTooLarge));
         }
-        return Err(HostUiIpcError::new(
-            HostUiIpcErrorKind::ClientUnavailable,
-        ));
+        return Err(HostUiIpcError::new(HostUiIpcErrorKind::ClientUnavailable));
     }
 
     let response_len = usize::try_from(bytes_read)
@@ -345,23 +317,17 @@ fn query_host_status_at(
 
 fn handle_request(request: &[u8]) -> Result<Vec<u8>, HostUiIpcError> {
     if request.is_empty() || request.len() > IPC_MAX_MESSAGE_BYTES {
-        return Err(HostUiIpcError::new(
-            HostUiIpcErrorKind::MessageTooLarge,
-        ));
+        return Err(HostUiIpcError::new(HostUiIpcErrorKind::MessageTooLarge));
     }
 
     let request: HostUiRequest = serde_json::from_slice(request)
         .map_err(|_| HostUiIpcError::new(HostUiIpcErrorKind::InvalidRequest))?;
 
     if request.ipc_version != HOST_UI_IPC_VERSION {
-        return Err(HostUiIpcError::new(
-            HostUiIpcErrorKind::UnsupportedVersion,
-        ));
+        return Err(HostUiIpcError::new(HostUiIpcErrorKind::UnsupportedVersion));
     }
     if request.kind != HOST_STATUS_KIND {
-        return Err(HostUiIpcError::new(
-            HostUiIpcErrorKind::UnsupportedKind,
-        ));
+        return Err(HostUiIpcError::new(HostUiIpcErrorKind::UnsupportedKind));
     }
 
     let response = HostStatusResponse {
@@ -374,9 +340,7 @@ fn handle_request(request: &[u8]) -> Result<Vec<u8>, HostUiIpcError> {
     let encoded = serde_json::to_vec(&response)
         .map_err(|_| HostUiIpcError::new(HostUiIpcErrorKind::InvalidResponse))?;
     if encoded.len() > IPC_MAX_MESSAGE_BYTES {
-        return Err(HostUiIpcError::new(
-            HostUiIpcErrorKind::MessageTooLarge,
-        ));
+        return Err(HostUiIpcError::new(HostUiIpcErrorKind::MessageTooLarge));
     }
 
     Ok(encoded)
@@ -394,9 +358,7 @@ fn parse_response(
         || response.kind != HOST_STATUS_KIND
         || response.host_state != HOST_RUNNING_STATE
     {
-        return Err(HostUiIpcError::new(
-            HostUiIpcErrorKind::InvalidResponse,
-        ));
+        return Err(HostUiIpcError::new(HostUiIpcErrorKind::InvalidResponse));
     }
 
     Ok(response)
@@ -426,10 +388,8 @@ mod tests {
 
     #[test]
     fn valid_request_produces_versioned_status_response() {
-        let response = handle_request(
-            br#"{"ipc_version":1,"request_id":42,"kind":"host_status"}"#,
-        )
-        .expect("valid request");
+        let response = handle_request(br#"{"ipc_version":1,"request_id":42,"kind":"host_status"}"#)
+            .expect("valid request");
 
         let response = parse_response(&response, 42).expect("valid response");
         assert_eq!(response.ipc_version, HOST_UI_IPC_VERSION);
@@ -440,19 +400,15 @@ mod tests {
 
     #[test]
     fn unsupported_version_is_rejected() {
-        let error = handle_request(
-            br#"{"ipc_version":2,"request_id":42,"kind":"host_status"}"#,
-        )
-        .expect_err("unsupported version must fail");
+        let error = handle_request(br#"{"ipc_version":2,"request_id":42,"kind":"host_status"}"#)
+            .expect_err("unsupported version must fail");
         assert_eq!(error.kind(), HostUiIpcErrorKind::UnsupportedVersion);
     }
 
     #[test]
     fn unsupported_kind_is_rejected() {
-        let error = handle_request(
-            br#"{"ipc_version":1,"request_id":42,"kind":"shutdown"}"#,
-        )
-        .expect_err("unsupported kind must fail");
+        let error = handle_request(br#"{"ipc_version":1,"request_id":42,"kind":"shutdown"}"#)
+            .expect_err("unsupported kind must fail");
         assert_eq!(error.kind(), HostUiIpcErrorKind::UnsupportedKind);
     }
 
@@ -477,8 +433,7 @@ mod tests {
         let server_pipe_name = pipe_name.clone();
         let (ready_tx, ready_rx) = mpsc::channel();
         let server_thread = thread::spawn(move || {
-            let server =
-                HostUiIpcServer::bind(&server_pipe_name).expect("bind test pipe");
+            let server = HostUiIpcServer::bind(&server_pipe_name).expect("bind test pipe");
             ready_tx.send(()).expect("signal test server ready");
             server.serve_once().expect("serve one test request");
         });
