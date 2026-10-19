@@ -2,6 +2,8 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
@@ -11,10 +13,41 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  detect:
+    name: Detect affected areas
+    runs-on: windows-latest
+    timeout-minutes: 5
+    outputs:
+      run_dotnet: ${{ steps.detect.outputs.run_dotnet }}
+      run_rust_harness: ${{ steps.detect.outputs.run_rust_harness }}
+      run_host: ${{ steps.detect.outputs.run_host }}
+      run_android: ${{ steps.detect.outputs.run_android }}
+      run_package: ${{ steps.detect.outputs.run_package }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Run detector self-tests
+        shell: pwsh
+        run: |
+          pwsh .\.github\scripts\Get-CiAffectedAreas.ps1 -SelfTest
+
+      - name: Detect affected areas
+        id: detect
+        shell: pwsh
+        run: |
+          pwsh .\.github\scripts\Get-CiAffectedAreas.ps1 `
+            -BaseRef "${{ github.event.pull_request.base.sha || github.event.before }}" `
+            -HeadSha "${{ github.event.pull_request.head.sha || github.sha }}" `
+            -EventName "${{ github.event_name }}"
+
   validate:
     name: Parse and hygiene
     runs-on: windows-latest
@@ -27,62 +60,35 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
 
+      - name: Run CI required gate self-tests
+        shell: pwsh
+        run: |
+          pwsh .\.github\scripts\Test-CiRequired.ps1 -SelfTest
+
       - name: Parse PowerShell with Windows PowerShell 5.1
         shell: powershell
         run: |
-          $failed = $false
-          $files = @(git ls-files '*.ps1' '*.psm1' | ForEach-Object { Get-Item -LiteralPath $_ })
-          foreach ($file in $files) {
-              $tokens = $null
-              $errors = $null
-              [System.Management.Automation.Language.Parser]::ParseFile(
-                  $file.FullName,
-                  [ref]$tokens,
-                  [ref]$errors
-              ) | Out-Null
-
-              foreach ($parseError in @($errors)) {
-                  Write-Host "::error file=$($file.FullName),line=$($parseError.Extent.StartLineNumber)::$($parseError.Message)"
-                  $failed = $true
-              }
-          }
-
-          if ($failed) {
-              exit 1
-          }
-
-          Write-Host "Parsed $($files.Count) PowerShell scripts with Windows PowerShell 5.1."
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\.github\scripts\Test-PowerShellSyntax.ps1
 
       - name: Parse PowerShell with PowerShell 7
         shell: pwsh
         run: |
-          $failed = $false
-          $files = @(git ls-files '*.ps1' '*.psm1' | ForEach-Object { Get-Item -LiteralPath $_ })
-          foreach ($file in $files) {
-              $tokens = $null
-              $errors = $null
-              [System.Management.Automation.Language.Parser]::ParseFile(
-                  $file.FullName,
-                  [ref]$tokens,
-                  [ref]$errors
-              ) | Out-Null
-
-              foreach ($parseError in @($errors)) {
-                  Write-Host "::error file=$($file.FullName),line=$($parseError.Extent.StartLineNumber)::$($parseError.Message)"
-                  $failed = $true
-              }
-          }
-
-          if ($failed) {
-              exit 1
-          }
-
-          Write-Host "Parsed $($files.Count) PowerShell scripts with PowerShell 7."
+          pwsh .\.github\scripts\Test-PowerShellSyntax.ps1
 
       - name: Check tracked-file and secret hygiene
         shell: pwsh
         run: |
-          $tracked = @(git ls-files)
+          $trackedOutput = @(& git ls-files 2>&1)
+          $lsFilesExit = $LASTEXITCODE
+          if ($lsFilesExit -ne 0) {
+              Write-Host "::error::git ls-files failed with exit code $lsFilesExit"
+              exit 1
+          }
+          $tracked = @($trackedOutput | Where-Object { [string]::IsNullOrWhiteSpace($_) -eq $false })
+          if ($tracked.Count -eq 0) {
+              Write-Host '::error::git ls-files returned zero tracked files in repository.'
+              exit 1
+          }
           $forbidden = @(
               $tracked | Where-Object {
                   $_ -match '(^|/)(AGENTS\.md|PLAN\.md|google-services\.json)$' -or
@@ -126,6 +132,8 @@ jobs:
 
   windows-dotnet-reference:
     name: Windows .NET reference build
+    needs: detect
+    if: needs.detect.outputs.run_dotnet == 'true'
     runs-on: windows-latest
     timeout-minutes: 20
 
@@ -148,6 +156,8 @@ jobs:
 
   android-fcm-harness:
     name: Android FCM harness build
+    needs: detect
+    if: needs.detect.outputs.run_android == 'true'
     runs-on: windows-latest
     timeout-minutes: 30
 
@@ -208,41 +218,8 @@ jobs:
 
   windows-rust-harness:
     name: Windows Rust notification harness build
-    runs-on: windows-latest
-    timeout-minutes: 20
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-          fetch-depth: 1
-
-      - name: Install stable Rust
-        shell: pwsh
-        run: |
-          rustup toolchain install 1.99.0 --profile minimal
-          rustup default 1.99.0
-          rustc --version
-          cargo --version
-
-      - name: Format and lint
-        shell: pwsh
-        run: |
-          rustup component add rustfmt clippy --toolchain 1.99.0
-          cargo fmt --manifest-path .\windows\spikes\notification-listener-rust\Cargo.toml -- --check
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo clippy --manifest-path .\windows\spikes\notification-listener-rust\Cargo.toml --all-targets -- -D warnings
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Build Rust notification harness
-        shell: pwsh
-        run: |
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\spikes\notification-listener-rust\scripts\Build.ps1
-
-
-  windows-host:
-    name: Windows Host workspace
+    needs: detect
+    if: needs.detect.outputs.run_rust_harness == 'true'
     runs-on: windows-latest
     timeout-minutes: 20
 
@@ -256,11 +233,40 @@ jobs:
       - name: Install pinned Rust
         shell: pwsh
         run: |
-          rustup toolchain install 1.99.0 --profile minimal
-          rustup default 1.99.0
-          rustup component add rustfmt clippy --toolchain 1.99.0
-          rustc --version
-          cargo --version
+          pwsh .\.github\scripts\Install-RustToolchain.ps1 -Components rustfmt,clippy
+
+      - name: Format and lint
+        shell: pwsh
+        run: |
+          cargo fmt --manifest-path .\windows\spikes\notification-listener-rust\Cargo.toml -- --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo clippy --manifest-path .\windows\spikes\notification-listener-rust\Cargo.toml --all-targets -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build Rust notification harness
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\spikes\notification-listener-rust\scripts\Build.ps1
+
+
+  windows-host:
+    name: Windows Host workspace
+    needs: detect
+    if: needs.detect.outputs.run_host == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Install pinned Rust
+        shell: pwsh
+        run: |
+          pwsh .\.github\scripts\Install-RustToolchain.ps1 -Components rustfmt,clippy
 
       - name: Format, lint, test, and build
         shell: pwsh
@@ -288,7 +294,8 @@ jobs:
 
   windows-package:
     name: Windows package build
-    needs: windows-host
+    needs: [detect, windows-host]
+    if: needs.detect.outputs.run_package == 'true'
     runs-on: windows-latest
     timeout-minutes: 20
 
@@ -302,60 +309,12 @@ jobs:
       - name: Install pinned Rust
         shell: pwsh
         run: |
-          rustup toolchain install 1.99.0 --profile minimal
-          rustup default 1.99.0
-          rustc --version
-          cargo --version
+          pwsh .\.github\scripts\Install-RustToolchain.ps1
 
       - name: Validate package identity
         shell: pwsh
         run: |
-          [xml]$manifest = Get-Content -LiteralPath .\windows\packaging\AppxManifest.xml -Raw
-          $ns = New-Object System.Xml.XmlNamespaceManager($manifest.NameTable)
-          $ns.AddNamespace('f', 'http://schemas.microsoft.com/appx/manifest/foundation/windows10')
-          $ns.AddNamespace('uap', 'http://schemas.microsoft.com/appx/manifest/uap/windows10')
-          $ns.AddNamespace('desktop', 'http://schemas.microsoft.com/appx/manifest/desktop/windows10')
-
-          $identity = $manifest.SelectSingleNode('/f:Package/f:Identity', $ns)
-          $applications = @($manifest.SelectNodes('/f:Package/f:Applications/f:Application', $ns))
-          $hostApplication = $manifest.SelectSingleNode('/f:Package/f:Applications/f:Application[@Id="Host"]', $ns)
-          $uiApplication = $manifest.SelectSingleNode('/f:Package/f:Applications/f:Application[@Id="UI"]', $ns)
-          $uiVisualElements = if ($uiApplication) {
-              $uiApplication.SelectSingleNode('uap:VisualElements', $ns)
-          } else {
-              $null
-          }
-          $properties = $manifest.SelectSingleNode('/f:Package/f:Properties', $ns)
-          $startupExtension = $manifest.SelectSingleNode(
-              '/f:Package/f:Applications/f:Application[@Id="Host"]/f:Extensions/desktop:Extension[@Category="windows.startupTask"]',
-              $ns
-          )
-          $startupTask = if ($startupExtension) {
-              $startupExtension.SelectSingleNode('desktop:StartupTask', $ns)
-          } else {
-              $null
-          }
-
-          if ($identity.Name -ne 'ItzHerzchen.DokiDango') { throw "Unexpected package name: $($identity.Name)" }
-          if ($identity.Publisher -ne 'CN=ItzHerzchen') { throw "Unexpected publisher: $($identity.Publisher)" }
-          if ($applications.Count -ne 2) { throw "Unexpected application count: $($applications.Count)" }
-          if (-not $hostApplication) { throw 'Missing Host application entry.' }
-          if ($hostApplication.Executable -ne 'dokidango.exe') { throw "Unexpected Host executable: $($hostApplication.Executable)" }
-          if ($hostApplication.EntryPoint -ne 'Windows.FullTrustApplication') { throw "Unexpected Host entry point: $($hostApplication.EntryPoint)" }
-          if (-not $uiApplication) { throw 'Missing UI application entry.' }
-          if ($uiApplication.Executable -ne 'dokidango-ui.exe') { throw "Unexpected UI executable: $($uiApplication.Executable)" }
-          if ($uiApplication.EntryPoint -ne 'Windows.FullTrustApplication') { throw "Unexpected UI entry point: $($uiApplication.EntryPoint)" }
-          if (-not $uiVisualElements) { throw 'Missing UI visual elements.' }
-          if ($uiVisualElements.AppListEntry -ne 'none') { throw "UI app list entry must be hidden: $($uiVisualElements.AppListEntry)" }
-          if ($properties.DisplayName -ne 'Doki-Dango') { throw "Unexpected display name: $($properties.DisplayName)" }
-          if ($properties.PublisherDisplayName -ne 'ItzHerzchen') { throw "Unexpected publisher display name: $($properties.PublisherDisplayName)" }
-          if (-not $startupExtension) { throw 'Missing windows.startupTask extension.' }
-          if ($startupExtension.Executable -ne 'dokidango.exe') { throw "Unexpected startup executable: $($startupExtension.Executable)" }
-          if ($startupExtension.EntryPoint -ne 'Windows.FullTrustApplication') { throw "Unexpected startup entry point: $($startupExtension.EntryPoint)" }
-          if (-not $startupTask) { throw 'Missing desktop:StartupTask.' }
-          if ($startupTask.TaskId -ne 'DokiDangoHostStartup') { throw "Unexpected startup task ID: $($startupTask.TaskId)" }
-          if ($startupTask.Enabled -ne 'true') { throw "Startup task must be enabled by default: $($startupTask.Enabled)" }
-          if ($startupTask.DisplayName -ne 'Doki-Dango') { throw "Unexpected startup display name: $($startupTask.DisplayName)" }
+          pwsh -File .\windows\tests\packaging\Test-PackageManifest.ps1
 
       - name: Build unsigned MSIX
         shell: pwsh
@@ -380,3 +339,38 @@ jobs:
         shell: powershell
         run: |
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\windows\tests\packaging\Test-ReleaseIntegrity.ps1
+
+  ci-required:
+    name: CI required
+    needs:
+      - detect
+      - validate
+      - windows-dotnet-reference
+      - windows-rust-harness
+      - windows-host
+      - android-fcm-harness
+      - windows-package
+    runs-on: windows-latest
+    if: always()
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Run CI required gate self-tests
+        shell: pwsh
+        run: |
+          pwsh .\.github\scripts\Test-CiRequired.ps1 -SelfTest
+
+      - name: Evaluate aggregate gate
+        shell: pwsh
+        run: |
+          pwsh .\.github\scripts\Test-CiRequired.ps1 `
+            -DetectResult "${{ needs.detect.result }}" `
+            -ValidateResult "${{ needs.validate.result }}" `
+            -ExpectationsJson '${{ toJSON(needs.detect.outputs) }}' `
+            -ResultsJson '${{ toJSON(needs) }}'
