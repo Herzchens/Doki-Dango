@@ -2,9 +2,9 @@ use crate::log::{HostLog, lock_log, sanitize};
 use doki_dango_host::diagnostics::{AccessState, DiagnosticEvent, Diagnostics};
 use doki_dango_platform_windows::{
     ComApartment, HOST_STARTUP_TASK_ID, InstanceAcquisition, SingleInstanceGuard,
-    acquire_host_instance, current_package_full_name,
+    acquire_host_instance, current_package_full_name, host_startup_task_state,
     host_ui_ipc::{HOST_UI_IPC_VERSION, HostUiIpcServer},
-    host_startup_task_state, initialize_sta,
+    initialize_sta,
     notifications::{NotificationAccess, NotificationListener, NotificationSubscription},
 };
 use std::{
@@ -156,7 +156,6 @@ impl HostApp {
     }
 }
 
-
 fn start_host_ui_ipc(log: Arc<Mutex<HostLog>>) {
     let thread_log = Arc::clone(&log);
     let spawn_result = thread::Builder::new()
@@ -191,8 +190,6 @@ fn start_host_ui_ipc(log: Arc<Mutex<HostLog>>) {
 
     if spawn_result.is_err() {
         let mut log_guard = lock_log(&log);
-        let _ = log_guard.write(
-            "operation=host_ui_ipc status=unavailable error_kind=thread_spawn",
-        );
+        let _ = log_guard.write("operation=host_ui_ipc status=unavailable error_kind=thread_spawn");
     }
 }
