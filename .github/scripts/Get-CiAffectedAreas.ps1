@@ -177,6 +177,27 @@ function Get-ChangedFilesFromGit {
     return @($diffOutput | Where-Object { [string]::IsNullOrWhiteSpace($_) -eq $false })
 }
 
+function Resolve-CiAffectedAreasFromChangedFiles {
+    param(
+        $RawChangedFiles
+    )
+
+    if ($null -eq $RawChangedFiles) {
+        Write-Host "Failing closed due to Git resolution or diff failure: selecting all jobs."
+        return @{
+            run_dotnet       = $true
+            run_rust_harness = $true
+            run_host         = $true
+            run_android      = $true
+            run_package      = $true
+        }
+    }
+
+    $changedFiles = @($RawChangedFiles)
+    Write-Host "Detected $($changedFiles.Count) changed files."
+    return Get-AffectedAreasFromPaths $changedFiles
+}
+
 function Resolve-CiAffectedAreas {
     param(
         [Parameter(Mandatory = $true)]
@@ -225,20 +246,12 @@ function Resolve-CiAffectedAreas {
         $diffBase = if ($BaseRef) { $BaseRef } else { 'origin/main' }
     }
 
-    $changedFiles = Get-ChangedFilesFromGit -RepoRoot $RepoRoot -CandidateBase $diffBase -CandidateHead $diffHead
-    if ($null -eq $changedFiles) {
-        Write-Host "Failing closed due to Git resolution or diff failure: selecting all jobs."
-        return @{
-            run_dotnet       = $true
-            run_rust_harness = $true
-            run_host         = $true
-            run_android      = $true
-            run_package      = $true
-        }
-    }
+    $rawChangedFiles = Get-ChangedFilesFromGit `
+        -RepoRoot $RepoRoot `
+        -CandidateBase $diffBase `
+        -CandidateHead $diffHead
 
-    Write-Host "Detected $($changedFiles.Count) changed files."
-    return Get-AffectedAreasFromPaths $changedFiles
+    return Resolve-CiAffectedAreasFromChangedFiles $rawChangedFiles
 }
 
 function Run-SelfTests {
@@ -343,6 +356,24 @@ function Run-SelfTests {
         -BaseRef 'HEAD' -HeadSha 'deliberately-nonexistent-head-deadbeef'
     Assert-Result -Name "real-fail-closed-git-head-failure" `
         -Actual $gitHeadFail `
+        -Expected @{ run_dotnet = $true; run_rust_harness = $true; run_host = $true; run_android = $true; run_package = $true }
+
+    # 17. Regression: scalar single changed path does not throw under Set-StrictMode and routes conservatively
+    $singleRootResult = Resolve-CiAffectedAreasFromChangedFiles 'CONTRIBUTING.md'
+    Assert-Result -Name "single-file-scalar-contributing" `
+        -Actual $singleRootResult `
+        -Expected @{ run_dotnet = $true; run_rust_harness = $true; run_host = $true; run_android = $true; run_package = $true }
+
+    # 18. Regression: scalar single changed path in known platform area routes correctly
+    $singleAndroidResult = Resolve-CiAffectedAreasFromChangedFiles 'android/spikes/firebase-messaging/build.gradle'
+    Assert-Result -Name "single-file-scalar-android" `
+        -Actual $singleAndroidResult `
+        -Expected @{ run_dotnet = $false; run_rust_harness = $false; run_host = $false; run_android = $true; run_package = $false }
+
+    # 19. Regression: null raw changed files sentinel fails closed
+    $nullGitResult = Resolve-CiAffectedAreasFromChangedFiles $null
+    Assert-Result -Name "null-git-result-fails-closed" `
+        -Actual $nullGitResult `
         -Expected @{ run_dotnet = $true; run_rust_harness = $true; run_host = $true; run_android = $true; run_package = $true }
 
     Write-Host "All Get-CiAffectedAreas self-tests passed successfully."
