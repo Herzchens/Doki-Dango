@@ -3,8 +3,8 @@ use std::{error::Error, ffi::c_void, fmt, iter, mem::size_of, os::windows::ffi::
 use windows::{
     Win32::{
         Foundation::{
-            CloseHandle, ERROR_MORE_DATA, ERROR_PIPE_CONNECTED, HANDLE, HLOCAL, LocalFree,
-            WIN32_ERROR,
+            CloseHandle, ERROR_MORE_DATA, ERROR_PIPE_CONNECTED, GetLastError, HANDLE, HLOCAL,
+            LocalFree, WIN32_ERROR,
         },
         Security::{
             Authorization::{
@@ -21,7 +21,7 @@ use windows::{
             PIPE_READMODE_MESSAGE, PIPE_REJECT_REMOTE_CLIENTS, PIPE_TYPE_MESSAGE, PIPE_WAIT,
         },
     },
-    core::{Error as WindowsError, PCWSTR, w},
+    core::{PCWSTR, w},
 };
 
 pub const HOST_UI_IPC_VERSION: u32 = 1;
@@ -303,8 +303,8 @@ fn query_host_status_at(
     };
 
     if !call_result.as_bool() {
-        let error = WindowsError::from_win32();
-        if WIN32_ERROR::from_error(&error) == Some(ERROR_MORE_DATA) {
+        let error = unsafe { GetLastError() };
+        if error == ERROR_MORE_DATA {
             return Err(HostUiIpcError::new(HostUiIpcErrorKind::MessageTooLarge));
         }
         return Err(HostUiIpcError::new(HostUiIpcErrorKind::ClientUnavailable));
