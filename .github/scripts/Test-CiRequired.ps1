@@ -42,15 +42,41 @@ function Evaluate-CiRequired {
     foreach ($outputKey in $mapping.Keys) {
         $jobName = $mapping[$outputKey]
 
-        $rawExpected = if ($Expectations.ContainsKey($outputKey)) { $Expectations[$outputKey] } else { $false }
-        $expected = if ($rawExpected -is [bool]) {
-            $rawExpected
-        } elseif ($rawExpected -is [string]) {
-            $rawExpected.Trim().ToLowerInvariant() -eq 'true'
-        } else {
-            $false
+        # Fail-closed check: Expectation key MUST exist
+        if (-not $Expectations.ContainsKey($outputKey)) {
+            $errors += "Missing expected detector output key: '$outputKey'."
+            continue
         }
 
+        $rawVal = $Expectations[$outputKey]
+        $expected = $null
+
+        if ($null -eq $rawVal) {
+            $errors += "Detector expectation for '$outputKey' is null."
+            continue
+        }
+        elseif ($rawVal -is [bool]) {
+            $expected = $rawVal
+        }
+        elseif ($rawVal -is [string]) {
+            $trimmed = $rawVal.Trim()
+            if ($trimmed -eq 'true') {
+                $expected = $true
+            }
+            elseif ($trimmed -eq 'false') {
+                $expected = $false
+            }
+            else {
+                $errors += "Malformed detector expectation for '$outputKey': expected 'true' or 'false', got '$rawVal'."
+                continue
+            }
+        }
+        else {
+            $errors += "Invalid detector expectation type for '$outputKey': expected boolean or 'true'/'false' string, got $($rawVal.GetType().FullName)."
+            continue
+        }
+
+        # Resolve actual job result
         $actual = if ($Results.ContainsKey($jobName)) {
             [string]$Results[$jobName]
         } else {
@@ -64,14 +90,9 @@ function Evaluate-CiRequired {
             }
         }
         else {
-            # When unnecessary, job should be skipped. Any failure/cancellation/unknown is unacceptable.
+            # When unnecessary, job MUST be skipped. Any other outcome (including unexpected success or failure) is a defect.
             if ($actual -ne 'skipped') {
-                if ($actual -ne 'success') {
-                    $errors += "Unnecessary job '$jobName' concluded with unexpected failure (actual: '$actual', expected: 'skipped')."
-                }
-                else {
-                    Write-Host "Notice: Unnecessary job '$jobName' executed and succeeded (expected 'skipped')."
-                }
+                $errors += "Unnecessary job '$jobName' was not skipped (actual: '$actual', expected: 'skipped')."
             }
         }
     }
@@ -106,6 +127,22 @@ function Run-SelfTests {
         run_package      = $true
     }
 
+    $allSkippedExp = @{
+        run_dotnet       = $false
+        run_rust_harness = $false
+        run_host         = $false
+        run_android      = $false
+        run_package      = $false
+    }
+
+    $allSkippedResults = @{
+        'windows-dotnet-reference' = 'skipped'
+        'windows-rust-harness'     = 'skipped'
+        'windows-host'             = 'skipped'
+        'android-fcm-harness'      = 'skipped'
+        'windows-package'          = 'skipped'
+    }
+
     $partialRequired = @{
         run_dotnet       = $false
         run_rust_harness = $false
@@ -113,6 +150,8 @@ function Run-SelfTests {
         run_android      = $true
         run_package      = $true
     }
+
+    # === PASS SCENARIOS ===
 
     # 1. PASS: all required succeed, all unnecessary skipped
     $res1 = Evaluate-CiRequired -DetectResult 'success' -ValidateResult 'success' `
@@ -126,32 +165,92 @@ function Run-SelfTests {
         }
     Assert-Evaluation -TestName "Required jobs success and unnecessary jobs skipped" -EvalResult $res1 -ExpectedSuccess $true
 
-    # 2. FAIL: detect failure
-    $res2 = Evaluate-CiRequired -DetectResult 'failure' -ValidateResult 'success' `
-        -Expectations $allRequired `
-        -Results @{
-            'windows-dotnet-reference' = 'success'
-            'windows-rust-harness'     = 'success'
-            'windows-host'             = 'success'
-            'android-fcm-harness'      = 'success'
-            'windows-package'          = 'success'
-        }
-    Assert-Evaluation -TestName "Detect failure" -EvalResult $res2 -ExpectedSuccess $false
+    # 2. PASS: docs-only expectations with all expensive jobs skipped
+    $res2 = Evaluate-CiRequired -DetectResult 'success' -ValidateResult 'success' `
+        -Expectations $allSkippedExp `
+        -Results $allSkippedResults
+    Assert-Evaluation -TestName "Docs-only expectations with all expensive jobs skipped" -EvalResult $res2 -ExpectedSuccess $true
 
-    # 3. FAIL: validation failure
-    $res3 = Evaluate-CiRequired -DetectResult 'success' -ValidateResult 'failure' `
-        -Expectations $allRequired `
-        -Results @{
-            'windows-dotnet-reference' = 'success'
-            'windows-rust-harness'     = 'success'
-            'windows-host'             = 'success'
-            'android-fcm-harness'      = 'success'
-            'windows-package'          = 'success'
-        }
-    Assert-Evaluation -TestName "Validation failure" -EvalResult $res3 -ExpectedSuccess $false
+    # 3. PASS: Android-only expected job success + unrelated jobs skipped
+    $androidOnlyExp = @{
+        run_dotnet       = 'false'
+        run_rust_harness = 'false'
+        run_host         = 'false'
+        run_android      = 'true'
+        run_package      = 'false'
+    }
+    $androidOnlyResults = @{
+        'windows-dotnet-reference' = 'skipped'
+        'windows-rust-harness'     = 'skipped'
+        'windows-host'             = 'skipped'
+        'android-fcm-harness'      = 'success'
+        'windows-package'          = 'skipped'
+    }
+    $res3 = Evaluate-CiRequired -DetectResult 'success' -ValidateResult 'success' `
+        -Expectations $androidOnlyExp `
+        -Results $androidOnlyResults
+    Assert-Evaluation -TestName "Android-only expected job success + unrelated jobs skipped" -EvalResult $res3 -ExpectedSuccess $true
 
-    # 4. FAIL: required job failure
+    # 4. PASS: shared protocol expected Host+Android+package success
+    $sharedExp = @{
+        run_dotnet       = 'false'
+        run_rust_harness = 'false'
+        run_host         = 'true'
+        run_android      = 'true'
+        run_package      = 'true'
+    }
+    $sharedResults = @{
+        'windows-dotnet-reference' = 'skipped'
+        'windows-rust-harness'     = 'skipped'
+        'windows-host'             = 'success'
+        'android-fcm-harness'      = 'success'
+        'windows-package'          = 'success'
+    }
     $res4 = Evaluate-CiRequired -DetectResult 'success' -ValidateResult 'success' `
+        -Expectations $sharedExp `
+        -Results $sharedResults
+    Assert-Evaluation -TestName "Shared protocol expected Host+Android+package success" -EvalResult $res4 -ExpectedSuccess $true
+
+    # === FAIL SCENARIOS ===
+
+    # 5. FAIL: detect failure
+    $res5 = Evaluate-CiRequired -DetectResult 'failure' -ValidateResult 'success' `
+        -Expectations $allRequired `
+        -Results @{
+            'windows-dotnet-reference' = 'success'
+            'windows-rust-harness'     = 'success'
+            'windows-host'             = 'success'
+            'android-fcm-harness'      = 'success'
+            'windows-package'          = 'success'
+        }
+    Assert-Evaluation -TestName "Detector failure" -EvalResult $res5 -ExpectedSuccess $false
+
+    # 6. FAIL: detector cancelled
+    $res6 = Evaluate-CiRequired -DetectResult 'cancelled' -ValidateResult 'success' `
+        -Expectations $allRequired `
+        -Results @{
+            'windows-dotnet-reference' = 'success'
+            'windows-rust-harness'     = 'success'
+            'windows-host'             = 'success'
+            'android-fcm-harness'      = 'success'
+            'windows-package'          = 'success'
+        }
+    Assert-Evaluation -TestName "Detector cancelled" -EvalResult $res6 -ExpectedSuccess $false
+
+    # 7. FAIL: validation failure
+    $res7 = Evaluate-CiRequired -DetectResult 'success' -ValidateResult 'failure' `
+        -Expectations $allRequired `
+        -Results @{
+            'windows-dotnet-reference' = 'success'
+            'windows-rust-harness'     = 'success'
+            'windows-host'             = 'success'
+            'android-fcm-harness'      = 'success'
+            'windows-package'          = 'success'
+        }
+    Assert-Evaluation -TestName "Validation failure" -EvalResult $res7 -ExpectedSuccess $false
+
+    # 8. FAIL: required job failure
+    $res8 = Evaluate-CiRequired -DetectResult 'success' -ValidateResult 'success' `
         -Expectations $allRequired `
         -Results @{
             'windows-dotnet-reference' = 'success'
@@ -160,10 +259,10 @@ function Run-SelfTests {
             'android-fcm-harness'      = 'success'
             'windows-package'          = 'success'
         }
-    Assert-Evaluation -TestName "Required job failure" -EvalResult $res4 -ExpectedSuccess $false
+    Assert-Evaluation -TestName "Required job failure" -EvalResult $res8 -ExpectedSuccess $false
 
-    # 5. FAIL: required job cancelled
-    $res5 = Evaluate-CiRequired -DetectResult 'success' -ValidateResult 'success' `
+    # 9. FAIL: required job cancelled
+    $res9 = Evaluate-CiRequired -DetectResult 'success' -ValidateResult 'success' `
         -Expectations $allRequired `
         -Results @{
             'windows-dotnet-reference' = 'success'
@@ -172,10 +271,10 @@ function Run-SelfTests {
             'android-fcm-harness'      = 'success'
             'windows-package'          = 'success'
         }
-    Assert-Evaluation -TestName "Required job cancelled" -EvalResult $res5 -ExpectedSuccess $false
+    Assert-Evaluation -TestName "Required job cancelled" -EvalResult $res9 -ExpectedSuccess $false
 
-    # 6. FAIL: required job skipped
-    $res6 = Evaluate-CiRequired -DetectResult 'success' -ValidateResult 'success' `
+    # 10. FAIL: required job skipped
+    $res10 = Evaluate-CiRequired -DetectResult 'success' -ValidateResult 'success' `
         -Expectations $allRequired `
         -Results @{
             'windows-dotnet-reference' = 'success'
@@ -184,10 +283,10 @@ function Run-SelfTests {
             'android-fcm-harness'      = 'skipped'
             'windows-package'          = 'success'
         }
-    Assert-Evaluation -TestName "Required job skipped" -EvalResult $res6 -ExpectedSuccess $false
+    Assert-Evaluation -TestName "Required job skipped" -EvalResult $res10 -ExpectedSuccess $false
 
-    # 7. FAIL: unexpected failure from an unnecessary job
-    $res7 = Evaluate-CiRequired -DetectResult 'success' -ValidateResult 'success' `
+    # 11. FAIL: unnecessary job failure
+    $res11 = Evaluate-CiRequired -DetectResult 'success' -ValidateResult 'success' `
         -Expectations $partialRequired `
         -Results @{
             'windows-dotnet-reference' = 'failure'
@@ -196,10 +295,134 @@ function Run-SelfTests {
             'android-fcm-harness'      = 'success'
             'windows-package'          = 'success'
         }
-    Assert-Evaluation -TestName "Unexpected failure from unnecessary job" -EvalResult $res7 -ExpectedSuccess $false
+    Assert-Evaluation -TestName "Unnecessary job failure" -EvalResult $res11 -ExpectedSuccess $false
 
-    # 8. FAIL: unknown result from required job
-    $res8 = Evaluate-CiRequired -DetectResult 'success' -ValidateResult 'success' `
+    # 12. FAIL: unnecessary job unexpectedly succeeded
+    $res12 = Evaluate-CiRequired -DetectResult 'success' -ValidateResult 'success' `
+        -Expectations $partialRequired `
+        -Results @{
+            'windows-dotnet-reference' = 'success'
+            'windows-rust-harness'     = 'skipped'
+            'windows-host'             = 'success'
+            'android-fcm-harness'      = 'success'
+            'windows-package'          = 'success'
+        }
+    Assert-Evaluation -TestName "Unnecessary job unexpectedly succeeded" -EvalResult $res12 -ExpectedSuccess $false
+
+    # 13. FAIL: missing detector output (missing run_android)
+    $missingAndroidExp = @{
+        run_dotnet       = $false
+        run_rust_harness = $false
+        run_host         = $true
+        run_package      = $true
+    }
+    $res13 = Evaluate-CiRequired -DetectResult 'success' -ValidateResult 'success' `
+        -Expectations $missingAndroidExp `
+        -Results @{
+            'windows-dotnet-reference' = 'skipped'
+            'windows-rust-harness'     = 'skipped'
+            'windows-host'             = 'success'
+            'android-fcm-harness'      = 'success'
+            'windows-package'          = 'success'
+        }
+    Assert-Evaluation -TestName "Missing detector output (run_android)" -EvalResult $res13 -ExpectedSuccess $false
+
+    # 14. FAIL: missing detector output (missing run_package)
+    $missingPackageExp = @{
+        run_dotnet       = $true
+        run_rust_harness = $true
+        run_host         = $true
+        run_android      = $true
+    }
+    $res14 = Evaluate-CiRequired -DetectResult 'success' -ValidateResult 'success' `
+        -Expectations $missingPackageExp `
+        -Results @{
+            'windows-dotnet-reference' = 'success'
+            'windows-rust-harness'     = 'success'
+            'windows-host'             = 'success'
+            'android-fcm-harness'      = 'success'
+            'windows-package'          = 'success'
+        }
+    Assert-Evaluation -TestName "Missing detector output (run_package)" -EvalResult $res14 -ExpectedSuccess $false
+
+    # 15. FAIL: malformed detector output ('tru')
+    $malformedTruExp = @{
+        run_dotnet       = $false
+        run_rust_harness = $false
+        run_host         = $true
+        run_android      = 'tru'
+        run_package      = $true
+    }
+    $res15 = Evaluate-CiRequired -DetectResult 'success' -ValidateResult 'success' `
+        -Expectations $malformedTruExp `
+        -Results @{
+            'windows-dotnet-reference' = 'skipped'
+            'windows-rust-harness'     = 'skipped'
+            'windows-host'             = 'success'
+            'android-fcm-harness'      = 'success'
+            'windows-package'          = 'success'
+        }
+    Assert-Evaluation -TestName "Malformed detector output ('tru')" -EvalResult $res15 -ExpectedSuccess $false
+
+    # 16. FAIL: malformed detector output (empty string)
+    $emptyStrExp = @{
+        run_dotnet       = $false
+        run_rust_harness = $false
+        run_host         = $true
+        run_android      = ''
+        run_package      = $true
+    }
+    $res16 = Evaluate-CiRequired -DetectResult 'success' -ValidateResult 'success' `
+        -Expectations $emptyStrExp `
+        -Results @{
+            'windows-dotnet-reference' = 'skipped'
+            'windows-rust-harness'     = 'skipped'
+            'windows-host'             = 'success'
+            'android-fcm-harness'      = 'success'
+            'windows-package'          = 'success'
+        }
+    Assert-Evaluation -TestName "Malformed detector output (empty string)" -EvalResult $res16 -ExpectedSuccess $false
+
+    # 17. FAIL: malformed detector output (numeric 1)
+    $numericExp = @{
+        run_dotnet       = $false
+        run_rust_harness = $false
+        run_host         = $true
+        run_android      = 1
+        run_package      = $true
+    }
+    $res17 = Evaluate-CiRequired -DetectResult 'success' -ValidateResult 'success' `
+        -Expectations $numericExp `
+        -Results @{
+            'windows-dotnet-reference' = 'skipped'
+            'windows-rust-harness'     = 'skipped'
+            'windows-host'             = 'success'
+            'android-fcm-harness'      = 'success'
+            'windows-package'          = 'success'
+        }
+    Assert-Evaluation -TestName "Malformed detector output (numeric 1)" -EvalResult $res17 -ExpectedSuccess $false
+
+    # 18. FAIL: malformed detector output (null)
+    $nullExp = @{
+        run_dotnet       = $false
+        run_rust_harness = $false
+        run_host         = $true
+        run_android      = $null
+        run_package      = $true
+    }
+    $res18 = Evaluate-CiRequired -DetectResult 'success' -ValidateResult 'success' `
+        -Expectations $nullExp `
+        -Results @{
+            'windows-dotnet-reference' = 'skipped'
+            'windows-rust-harness'     = 'skipped'
+            'windows-host'             = 'success'
+            'android-fcm-harness'      = 'success'
+            'windows-package'          = 'success'
+        }
+    Assert-Evaluation -TestName "Malformed detector output (null)" -EvalResult $res18 -ExpectedSuccess $false
+
+    # 19. FAIL: unknown result from required job
+    $res19 = Evaluate-CiRequired -DetectResult 'success' -ValidateResult 'success' `
         -Expectations $partialRequired `
         -Results @{
             'windows-dotnet-reference' = 'skipped'
@@ -208,7 +431,7 @@ function Run-SelfTests {
             'android-fcm-harness'      = 'success'
             'windows-package'          = 'success'
         }
-    Assert-Evaluation -TestName "Unknown job result" -EvalResult $res8 -ExpectedSuccess $false
+    Assert-Evaluation -TestName "Unknown job result" -EvalResult $res19 -ExpectedSuccess $false
 
     Write-Host "All Test-CiRequired self-tests passed successfully."
 }

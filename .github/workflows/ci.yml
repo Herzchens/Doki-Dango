@@ -78,7 +78,17 @@ jobs:
       - name: Check tracked-file and secret hygiene
         shell: pwsh
         run: |
-          $tracked = @(git ls-files)
+          $trackedOutput = @(& git ls-files 2>&1)
+          $lsFilesExit = $LASTEXITCODE
+          if ($lsFilesExit -ne 0) {
+              Write-Host "::error::git ls-files failed with exit code $lsFilesExit"
+              exit 1
+          }
+          $tracked = @($trackedOutput | Where-Object { [string]::IsNullOrWhiteSpace($_) -eq $false })
+          if ($tracked.Count -eq 0) {
+              Write-Host '::error::git ls-files returned zero tracked files in repository.'
+              exit 1
+          }
           $forbidden = @(
               $tracked | Where-Object {
                   $_ -match '(^|/)(AGENTS\.md|PLAN\.md|google-services\.json)$' -or
