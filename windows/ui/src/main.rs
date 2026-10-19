@@ -1,5 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use doki_dango_platform_windows::host_ui_ipc::{
+    HOST_UI_IPC_VERSION, query_host_status,
+};
 use std::{
     env,
     fs::{File, OpenOptions, create_dir_all},
@@ -25,6 +28,21 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         process::id(),
         sanitize(&executable_path.display().to_string())
     ))?;
+    let request_id = u64::try_from(unix_ms()).unwrap_or(u64::MAX);
+    match query_host_status(request_id) {
+        Ok(status) => log.write(&format!(
+            "operation=host_ipc status=connected ipc_version={} host_state={} request_id={}",
+            status.ipc_version,
+            status.host_state,
+            status.request_id
+        ))?,
+        Err(error) => log.write(&format!(
+            "operation=host_ipc status=unavailable ipc_version={} error_kind={}",
+            HOST_UI_IPC_VERSION,
+            error.kind().as_str()
+        ))?,
+    }
+
     log.write(
         "operation=ui_process role=settings_surface status=exiting reason=bootstrap_complete exit_code=0",
     )?;
