@@ -27,9 +27,13 @@ This repository represents pre-release engineering and infrastructure foundation
 - `windows/tests/host` — Platform and host verification scripts.
 - `windows/tests/packaging` — Package upgrade and release integrity verification scripts.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines, development workflows, and repository boundaries.
+
 ## Security
 
-To report security vulnerabilities, please use [GitHub Private Vulnerability Reporting](https://github.com/Herzchens/Doki-Dango/security/advisories/new) or contact the maintainers directly. Do not report security vulnerabilities through public issues.
+See [SECURITY.md](SECURITY.md) for security policy and reporting guidelines. Do not report security vulnerabilities through public issues.
 
 ## License
 
