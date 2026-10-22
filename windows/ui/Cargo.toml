@@ -8,3 +8,6 @@ publish = false
 [[bin]]
 name = "dokidango-ui"
 path = "src/main.rs"
+
+[dependencies]
+doki-dango-platform-windows = { path = "../platform" }

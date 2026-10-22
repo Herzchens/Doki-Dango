@@ -134,8 +134,9 @@ $hostProcesses = Wait-ProcessCount -Name 'dokidango' -Expected 1
 $hostPid = $hostProcesses[0].Id
 $hostLog = Wait-NewLog -Directory $HostLogDir -Before $beforeHostLogs
 $null = Wait-LogPattern -Path $hostLog.FullName -Pattern 'operation=listener_ready status=success'
+$null = Wait-LogPattern -Path $hostLog.FullName -Pattern 'operation=host_ui_ipc status=started ipc_version=1'
 
-Write-Host "Primary Host ready (PID $hostPid)"
+Write-Host "Primary Host ready with Host/UI IPC (PID $hostPid)"
 
 $beforeUiLogs = Get-LogSnapshot -Directory $UiLogDir
 Start-Process $uiAumid
@@ -161,6 +162,9 @@ if ($uiContent -notmatch [regex]::Escape($uiExeForLog)) {
 }
 if ($uiContent -match 'operation=access|operation=poll|operation=listener_ready') {
     throw 'UI process unexpectedly performed Host notification-listener work.'
+}
+if ($uiContent -notmatch 'operation=host_ipc status=connected ipc_version=1 host_state=running') {
+    throw 'UI process did not complete the Host status IPC round trip.'
 }
 
 $null = Wait-ProcessCount -Name 'dokidango-ui' -Expected 0
@@ -188,6 +192,9 @@ if ($secondUiPid -eq $hostPid) {
 }
 if ($secondUiContent -notmatch [regex]::Escape($uiExeForLog)) {
     throw "Second UI log does not identify the installed package executable path: $uiExe"
+}
+if ($secondUiContent -notmatch 'operation=host_ipc status=connected ipc_version=1 host_state=running') {
+    throw 'Second UI launch did not complete the Host status IPC round trip.'
 }
 
 $null = Wait-ProcessCount -Name 'dokidango-ui' -Expected 0
