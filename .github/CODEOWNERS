@@ -1,0 +1,4 @@
+# Antigravity-CI privileged policy files. Keep these exact entries last so they override broader patterns.
+/.github/CODEOWNERS @Herzchens
+/.github/workflows/antigravity-review.yml @Herzchens
+/.agy/project.toml @Herzchens

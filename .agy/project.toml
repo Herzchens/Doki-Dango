@@ -1,0 +1,21 @@
+schema_version = 1
+
+[project]
+name = "Doki-Dango"
+type = "rust-android"
+
+[build]
+windows = "cargo build --locked --workspace --release"
+android = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\android\\spikes\\firebase-messaging\\scripts\\Build.ps1"
+
+[test]
+windows = "cargo test --locked --workspace"
+
+[lint]
+format = "cargo fmt --all -- --check"
+clippy = "cargo clippy --locked --workspace --all-targets -- -D warnings"
+
+[features]
+adb = false
+network = false
+gui = false
