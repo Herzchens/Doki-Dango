@@ -1,0 +1,40 @@
+name: Antigravity CI
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  review:
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.base.ref == github.event.repository.default_branch &&
+      github.event.pull_request.base.repo.full_name == github.repository &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.repo.id == github.event.pull_request.base.repo.id &&
+      github.event.pull_request.user.login == 'Herzchens'
+    uses: Herzchens/Antigravity-CI/.github/workflows/review.yml@922b715ddda12414d2123d9d320ded94a47044e5
+    with:
+      signing_runner_label: antigravity-signing
+      authorized_pr_login: 'Herzchens'
+      review_runner_label: antigravity-review
+      publisher_runner_label: antigravity-publisher
+      signing_public_key_path: 'C:\Users\Herzchen\.ssh\id_ed25519.pub'
+      review_trusted_public_key_path: 'C:\ProgramData\Antigravity-CI\trusted-keys\signing-public.pub'
+      expected_reporter_login: 'herzchen-s-assistance[bot]'
+      reporter_app_client_id: ${{ vars.ANTIGRAVITY_REPORTER_APP_CLIENT_ID }}
+      agy_executable: agy
+      agy_sha256: 'b4bbcc9f65d355bc84523d4f43e1ead34992890baf60c24e4ccbf605e2da6858'
+      print_timeout_seconds: 1200
+      allow_adb: false
+      allow_network: false
+      allow_gui: false
+    secrets:
+      signing_push_token: ${{ secrets.ANTIGRAVITY_SIGNING_PUSH_TOKEN }}
+      reporter_app_private_key: ${{ secrets.ANTIGRAVITY_REPORTER_APP_PRIVATE_KEY }}
+      reporter_token: ${{ secrets.ANTIGRAVITY_REPORTER_TOKEN }}
+      infrastructure_read_token: ${{ secrets.ANTIGRAVITY_INFRA_READ_TOKEN }}
