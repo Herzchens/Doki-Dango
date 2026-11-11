@@ -1,4 +1,5 @@
 mod data_protection;
+pub mod host_ui_ipc;
 mod instance;
 pub mod notifications;
 mod startup;
