@@ -27,8 +27,8 @@ jobs:
       review_trusted_public_key_path: 'C:\ProgramData\Antigravity-CI\trusted-keys\signing-public.pub'
       expected_reporter_login: 'herzchen-s-assistance[bot]'
       reporter_app_client_id: ${{ vars.ANTIGRAVITY_REPORTER_APP_CLIENT_ID }}
-      agy_executable: agy
-      agy_sha256: 'b4bbcc9f65d355bc84523d4f43e1ead34992890baf60c24e4ccbf605e2da6858'
+      agy_executable: 'C:\ProgramData\Antigravity-CI\bin\agy\1.4.9\agy.exe'
+      agy_sha256: 'cffaeb65f38d048747e447632d70660406d8b214ca724c5e240a5cfc724aabcb'
       print_timeout_seconds: 1200
       allow_adb: false
       allow_network: false
