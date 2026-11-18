@@ -17,7 +17,7 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.head.repo.id == github.event.pull_request.base.repo.id &&
       github.event.pull_request.user.login == 'Herzchens'
-    uses: Herzchens/Antigravity-CI/.github/workflows/review.yml@7a0610fbc87b13ba2219acadac27816769d031a1
+    uses: Herzchens/Antigravity-CI/.github/workflows/review.yml@563a722509fd84a6419174a1346fca1dfb7551cd
     with:
       signing_runner_label: antigravity-signing
       authorized_pr_login: 'Herzchens'
