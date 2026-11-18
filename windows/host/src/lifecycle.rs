@@ -2,7 +2,9 @@ use crate::log::{HostLog, lock_log, sanitize};
 use doki_dango_host::diagnostics::{AccessState, DiagnosticEvent, Diagnostics};
 use doki_dango_platform_windows::{
     ComApartment, HOST_STARTUP_TASK_ID, InstanceAcquisition, SingleInstanceGuard,
-    acquire_host_instance, current_package_full_name, host_startup_task_state, initialize_sta,
+    acquire_host_instance, current_package_full_name, host_startup_task_state,
+    host_ui_ipc::{HOST_UI_IPC_VERSION, HostUiIpcServer},
+    initialize_sta,
     notifications::{NotificationAccess, NotificationListener, NotificationSubscription},
 };
 use std::{
@@ -136,6 +138,8 @@ impl HostApp {
             println!("Log: {}", log_guard.path().display());
         }
 
+        start_host_ui_ipc(Arc::clone(&log));
+
         Ok(LaunchOutcome::Primary(HostApp {
             _apartment: apartment,
             _instance: instance,
@@ -149,5 +153,43 @@ impl HostApp {
         loop {
             thread::sleep(Duration::from_secs(3600));
         }
+    }
+}
+
+fn start_host_ui_ipc(log: Arc<Mutex<HostLog>>) {
+    let thread_log = Arc::clone(&log);
+    let spawn_result = thread::Builder::new()
+        .name("doki-host-ui-ipc".to_string())
+        .spawn(move || match HostUiIpcServer::bind_default() {
+            Ok(server) => {
+                {
+                    let mut log_guard = lock_log(&thread_log);
+                    let _ = log_guard.write(&format!(
+                        "operation=host_ui_ipc status=started ipc_version={HOST_UI_IPC_VERSION}"
+                    ));
+                }
+
+                loop {
+                    if let Err(error) = server.serve_once() {
+                        let mut log_guard = lock_log(&thread_log);
+                        let _ = log_guard.write(&format!(
+                            "operation=host_ui_ipc status=request_failed error_kind={}",
+                            error.kind().as_str()
+                        ));
+                    }
+                }
+            }
+            Err(error) => {
+                let mut log_guard = lock_log(&thread_log);
+                let _ = log_guard.write(&format!(
+                    "operation=host_ui_ipc status=unavailable error_kind={}",
+                    error.kind().as_str()
+                ));
+            }
+        });
+
+    if spawn_result.is_err() {
+        let mut log_guard = lock_log(&log);
+        let _ = log_guard.write("operation=host_ui_ipc status=unavailable error_kind=thread_spawn");
     }
 }
